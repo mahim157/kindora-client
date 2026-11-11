@@ -118,10 +118,21 @@ function CreateEventContent() {
     try {
       setLoading(true);
 
+      // Get JWT token from Better Auth
+      const { data, error } = await authClient.token();
+
+      if (error || !data?.token) {
+        toast.error("Please login again.");
+        router.push("/login");
+        return;
+      }
+
+      // Send event data to Express backend
       const response = await fetch(`${API_URL}/api/events`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${data.token}`,
         },
         body: JSON.stringify({
           title: form.title.trim(),
@@ -129,8 +140,7 @@ function CreateEventContent() {
           type: form.type,
           image: form.image.trim(),
           location: form.location.trim(),
-          date: form.date,
-          creatorEmail: session.user.email,
+          eventDate: form.date,
         }),
       });
 
@@ -143,7 +153,9 @@ function CreateEventContent() {
       }
 
       toast.success("Your event has been created successfully!");
+
       setForm(initialForm);
+
       router.push("/manage-events");
       router.refresh();
     } catch (error) {
@@ -180,7 +192,8 @@ function CreateEventContent() {
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-[#174B35] sm:text-4xl">
-            Make Something <span className="text-[#E99A62]">Meaningful.</span>
+            Make Something{" "}
+            <span className="text-[#E99A62]">Meaningful.</span>
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-7 text-[#26382D]/70 sm:text-base">
@@ -271,6 +284,7 @@ function CreateEventContent() {
                 className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
               >
                 <option value="">Select an event category</option>
+
                 {eventTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -355,6 +369,7 @@ function CreateEventContent() {
               <p className="text-xs font-semibold uppercase tracking-wider text-[#174B35]/70">
                 Event Organizer
               </p>
+
               <p className="mt-1 break-all text-sm font-medium text-[#174B35]">
                 {session?.user?.email || "Loading user..."}
               </p>
