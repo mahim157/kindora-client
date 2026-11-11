@@ -42,11 +42,12 @@ interface Event {
 
 const categories = [
   { name: "All", icon: Globe2 },
-  { name: "Environment", icon: Leaf },
+  { name: "Community Service", icon: Users },
   { name: "Education", icon: GraduationCap },
-  { name: "Healthcare", icon: HeartPulse },
-  { name: "Community", icon: Users },
-  { name: "Social Welfare", icon: HeartHandshake },
+  { name: "Environment", icon: Leaf },
+  { name: "Health", icon: HeartPulse },
+  { name: "Social Awareness", icon: HeartHandshake },
+  { name: "Fundraising", icon: HandHeart },
   { name: "Other", icon: Lightbulb },
 ];
 
@@ -111,7 +112,9 @@ const initiatives = [
 function formatDate(date: string) {
   const parsed = new Date(date);
 
-  if (Number.isNaN(parsed.getTime())) return "Date unavailable";
+  if (Number.isNaN(parsed.getTime())) {
+    return "Date unavailable";
+  }
 
   return parsed.toLocaleDateString("en-US", {
     day: "2-digit",
@@ -124,7 +127,9 @@ function formatDate(date: string) {
 function formatTime(date: string) {
   const parsed = new Date(date);
 
-  if (Number.isNaN(parsed.getTime())) return "";
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
 
   return parsed.toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -154,17 +159,19 @@ export default function HomePage() {
 
   const user = session?.user;
   const isLoggedIn = Boolean(user);
-  const token = session?.session?.token;
 
-  // Fetch upcoming events
+  // Fetch recent upcoming events
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_URL}/api/events/recent`, {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${API_URL}/api/events/recent`,
+        {
+          cache: "no-store",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Could not load events from the server.");
@@ -179,16 +186,22 @@ export default function HomePage() {
       const upcomingEvents = result.data
         .filter((event: Event) => {
           const eventTime = new Date(event.eventDate).getTime();
-          return Number.isFinite(eventTime) && eventTime > Date.now();
+
+          return (
+            Number.isFinite(eventTime) &&
+            eventTime > Date.now()
+          );
         })
         .slice(0, 6);
 
       setEvents(upcomingEvents);
     } catch (error) {
-      console.error(error);
+      console.error("Fetch events:", error);
 
       setError(
-        error instanceof Error ? error.message : "Something went wrong."
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
       );
     } finally {
       setLoading(false);
@@ -199,29 +212,51 @@ export default function HomePage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Fetch joined events
+  // Fetch joined events using Better Auth JWT
   useEffect(() => {
+    let cancelled = false;
+
     const fetchJoined = async () => {
-      if (!isLoggedIn || !token) {
+      if (!isLoggedIn) {
         setJoinedIds([]);
         return;
       }
 
       try {
-        const response = await fetch(`${API_URL}/api/events/joined`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        });
+        const { data, error } = await authClient.token();
 
-        if (!response.ok) return;
+        if (error || !data?.token) {
+          if (!cancelled) {
+            setJoinedIds([]);
+          }
+          return;
+        }
+
+        const response = await fetch(
+          `${API_URL}/api/events/joined`,
+          {
+            headers: {
+              Authorization: `Bearer ${data.token}`,
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Could not load joined events.");
+        }
 
         const result = await response.json();
 
-        if (result.success && Array.isArray(result.data)) {
+        if (
+          !cancelled &&
+          result.success &&
+          Array.isArray(result.data)
+        ) {
           setJoinedIds(
-            result.data.map((event: Event) => event._id)
+            result.data.map((event: Event) =>
+              String(event._id)
+            )
           );
         }
       } catch (error) {
@@ -230,18 +265,17 @@ export default function HomePage() {
     };
 
     fetchJoined();
-  }, [isLoggedIn, token]);
 
-  // Join event
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
+
+  // Join event using Better Auth JWT
   const handleJoin = async (eventId: string) => {
     if (!isLoggedIn) {
       toast.error("Please login to join this event.");
       window.location.href = "/login";
-      return;
-    }
-
-    if (!token) {
-      toast.error("Please login again to continue.");
       return;
     }
 
@@ -253,12 +287,19 @@ export default function HomePage() {
     try {
       setJoiningId(eventId);
 
+      const { data, error } = await authClient.token();
+
+      if (error || !data?.token) {
+        toast.error("Please login again to continue.");
+        return;
+      }
+
       const response = await fetch(
         `${API_URL}/api/events/${eventId}/join`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${data.token}`,
             "Content-Type": "application/json",
           },
         }
@@ -267,15 +308,25 @@ export default function HomePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Could not join this event.");
+        throw new Error(
+          result.message || "Could not join this event."
+        );
       }
 
-      setJoinedIds((previous) => [...previous, eventId]);
+      setJoinedIds((previous) =>
+        previous.includes(eventId)
+          ? previous
+          : [...previous, eventId]
+      );
 
-      toast.success(result.message || "Successfully joined!");
+      toast.success(
+        result.message || "Successfully joined!"
+      );
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Something went wrong."
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
       );
     } finally {
       setJoiningId(null);
@@ -285,7 +336,7 @@ export default function HomePage() {
   // Search and category filtering
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      const query = search.toLowerCase();
+      const query = search.toLowerCase().trim();
 
       const matchesSearch =
         event.title.toLowerCase().includes(query) ||
@@ -294,7 +345,8 @@ export default function HomePage() {
 
       const matchesCategory =
         activeCategory === "All" ||
-        event.type.toLowerCase() === activeCategory.toLowerCase();
+        event.type.toLowerCase() ===
+          activeCategory.toLowerCase();
 
       return matchesSearch && matchesCategory;
     });
@@ -324,9 +376,10 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-8 max-w-lg text-base leading-8 text-[#64717A] sm:text-lg">
-              A place for people who believe that positive change starts
-              locally. Discover events, meet changemakers, and turn good
-              intentions into real action.
+              A place for people who believe that positive
+              change starts locally. Discover events, meet
+              changemakers, and turn good intentions into
+              real action.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-4">
@@ -401,7 +454,9 @@ export default function HomePage() {
               </div>
 
               <div>
-                <p className="text-sm font-black">Make it matter.</p>
+                <p className="text-sm font-black">
+                  Make it matter.
+                </p>
                 <p className="text-xs text-[#46532A]">
                   Start with one action
                 </p>
@@ -429,13 +484,15 @@ export default function HomePage() {
               <span className="text-sm font-black text-[#8AA83B]">
                 {number}
               </span>
-              <span className="text-xs font-bold sm:text-sm">{text}</span>
+              <span className="text-xs font-bold sm:text-sm">
+                {text}
+              </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ABOUT */}
+      {/* ABOUT / FEATURES */}
       <section
         id="about"
         className="bg-[#172A3A] px-5 py-20 text-white md:px-10 lg:py-28"
@@ -454,15 +511,17 @@ export default function HomePage() {
               </h2>
 
               <p className="mt-6 max-w-sm leading-8 text-white/60">
-                We make it easier for people to find meaningful ways to help.
-                Because stronger communities are built by people who care.
+                We make it easier for people to find meaningful
+                ways to help. Because stronger communities are
+                built by people who care.
               </p>
 
               <Link
                 href="/events"
                 className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#D5F36A] px-6 py-3.5 text-sm font-bold text-[#172A3A] transition hover:bg-white"
               >
-                Explore Opportunities <ArrowUpRight size={17} />
+                Explore Opportunities
+                <ArrowUpRight size={17} />
               </Link>
             </div>
 
@@ -497,7 +556,11 @@ export default function HomePage() {
                     className="rounded-2xl border border-white/15 bg-white/[0.04] p-7 transition hover:border-[#D5F36A]/50 hover:bg-white/[0.08]"
                   >
                     <Icon size={27} className="text-[#D5F36A]" />
-                    <h3 className="mt-6 text-xl font-bold">{item.title}</h3>
+
+                    <h3 className="mt-6 text-xl font-bold">
+                      {item.title}
+                    </h3>
+
                     <p className="mt-3 text-sm leading-7 text-white/55">
                       {item.text}
                     </p>
@@ -509,7 +572,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
+      {/* INITIATIVES */}
       <section className="px-5 py-20 md:px-10">
         <div className="mx-auto max-w-[1400px]">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -524,8 +587,8 @@ export default function HomePage() {
             </div>
 
             <p className="max-w-sm text-sm leading-7 text-[#73808A]">
-              From environmental action to education, there is a cause for
-              everyone.
+              From environmental action to education,
+              there is a cause for everyone.
             </p>
           </div>
 
@@ -550,7 +613,9 @@ export default function HomePage() {
                     />
                   </div>
 
-                  <h3 className="mt-10 text-xl font-black">{item.title}</h3>
+                  <h3 className="mt-10 text-xl font-black">
+                    {item.title}
+                  </h3>
 
                   <p className="mt-3 min-h-[72px] text-sm leading-6 text-[#73808A]">
                     {item.description}
@@ -566,7 +631,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* EVENTS */}
+      {/* UPCOMING EVENTS */}
       <section
         id="events"
         className="bg-[#E8E4DA] px-5 py-20 md:px-10 lg:py-28"
@@ -579,11 +644,13 @@ export default function HomePage() {
               </span>
 
               <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
-                Upcoming events<span className="text-[#829C37]">.</span>
+                Upcoming events
+                <span className="text-[#829C37]">.</span>
               </h2>
 
               <p className="mt-4 max-w-xl text-sm leading-7 text-[#73808A]">
-                Find an opportunity, show up, and be part of something bigger.
+                Find an opportunity, show up, and be part
+                of something bigger.
               </p>
             </div>
 
@@ -591,11 +658,12 @@ export default function HomePage() {
               href="/events"
               className="inline-flex items-center gap-2 self-start rounded-full border border-[#172A3A]/25 px-6 py-3 text-sm font-bold transition hover:bg-[#172A3A] hover:text-white md:self-auto"
             >
-              View All Events <ArrowUpRight size={17} />
+              View All Events
+              <ArrowUpRight size={17} />
             </Link>
           </div>
 
-          {/* FILTER BAR */}
+          {/* SEARCH AND FILTER */}
           <div className="mt-10 flex flex-col gap-5 border-y border-[#172A3A]/15 py-5">
             <div className="relative max-w-md">
               <Search
@@ -605,8 +673,11 @@ export default function HomePage() {
 
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
                 placeholder="Search events, places..."
+                aria-label="Search events"
                 className="w-full rounded-full border border-[#172A3A]/15 bg-[#F4F0E8] py-3.5 pl-11 pr-5 text-sm outline-none transition focus:border-[#829C37]"
               />
             </div>
@@ -619,7 +690,9 @@ export default function HomePage() {
                   <button
                     key={category.name}
                     type="button"
-                    onClick={() => setActiveCategory(category.name)}
+                    onClick={() =>
+                      setActiveCategory(category.name)
+                    }
                     className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition ${
                       activeCategory === category.name
                         ? "bg-[#172A3A] text-white"
@@ -634,11 +707,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* EVENT LOADING */}
+          {/* EVENTS CONTENT */}
           {loading ? (
             <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="animate-pulse bg-[#F4F0E8]">
+                <div
+                  key={index}
+                  className="animate-pulse bg-[#F4F0E8]"
+                >
                   <div className="h-56 bg-[#D9D6CB]" />
 
                   <div className="space-y-4 p-6">
@@ -655,9 +731,12 @@ export default function HomePage() {
                 Events could not be loaded
               </h3>
 
-              <p className="mt-3 text-sm text-[#73808A]">{error}</p>
+              <p className="mt-3 text-sm text-[#73808A]">
+                {error}
+              </p>
 
               <button
+                type="button"
                 onClick={fetchEvents}
                 className="mt-6 rounded-full bg-[#172A3A] px-6 py-3 text-sm font-bold text-white"
               >
@@ -671,13 +750,16 @@ export default function HomePage() {
                 className="mx-auto text-[#829C37]"
               />
 
-              <h3 className="mt-5 text-xl font-black">No events found</h3>
+              <h3 className="mt-5 text-xl font-black">
+                No events found
+              </h3>
 
               <p className="mt-3 text-sm text-[#73808A]">
                 Try a different search or category.
               </p>
 
               <button
+                type="button"
                 onClick={() => {
                   setSearch("");
                   setActiveCategory("All");
@@ -736,8 +818,13 @@ export default function HomePage() {
                       </p>
 
                       <div className="mt-5 flex items-center gap-2 border-t border-[#172A3A]/10 pt-4 text-xs font-semibold text-[#73808A]">
-                        <MapPin size={15} className="text-[#829C37]" />
-                        <span className="line-clamp-1">{event.location}</span>
+                        <MapPin
+                          size={15}
+                          className="text-[#829C37]"
+                        />
+                        <span className="line-clamp-1">
+                          {event.location}
+                        </span>
                       </div>
 
                       <div className="mt-6 flex gap-3">
@@ -745,7 +832,8 @@ export default function HomePage() {
                           href={`/events/${event._id}`}
                           className="flex flex-1 items-center justify-center gap-2 border border-[#172A3A]/20 py-3 text-xs font-black transition hover:bg-[#172A3A] hover:text-white"
                         >
-                          View Details <ArrowUpRight size={15} />
+                          View Details
+                          <ArrowUpRight size={15} />
                         </Link>
 
                         <button
@@ -766,7 +854,8 @@ export default function HomePage() {
                             </>
                           ) : (
                             <>
-                              Join This Event <ArrowRight size={15} />
+                              Join This Event
+                              <ArrowRight size={15} />
                             </>
                           )}
                         </button>
@@ -781,7 +870,10 @@ export default function HomePage() {
       </section>
 
       {/* GALLERY */}
-      <section id="gallery" className="px-5 py-20 md:px-10 lg:py-28">
+      <section
+        id="gallery"
+        className="px-5 py-20 md:px-10 lg:py-28"
+      >
         <div className="mx-auto max-w-[1400px]">
           <div className="mb-12 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
@@ -790,13 +882,14 @@ export default function HomePage() {
               </span>
 
               <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
-                Moments of impact<span className="text-[#829C37]">.</span>
+                Moments of impact
+                <span className="text-[#829C37]">.</span>
               </h2>
             </div>
 
             <p className="max-w-sm text-sm leading-7 text-[#73808A]">
-              Every small effort has a story. Here are the moments that
-              inspire us to keep going.
+              Every small effort has a story. Here are the
+              moments that inspire us to keep going.
             </p>
           </div>
 
@@ -805,7 +898,9 @@ export default function HomePage() {
               <div
                 key={item.title}
                 className={`group relative overflow-hidden bg-[#172A3A] ${
-                  index % 2 === 0 ? "h-[360px]" : "h-[310px] lg:mt-12"
+                  index % 2 === 0
+                    ? "h-[360px]"
+                    : "h-[310px] lg:mt-12"
                 }`}
               >
                 <img
@@ -821,7 +916,9 @@ export default function HomePage() {
                     {item.category}
                   </span>
 
-                  <h3 className="mt-3 text-xl font-black">{item.title}</h3>
+                  <h3 className="mt-3 text-xl font-black">
+                    {item.title}
+                  </h3>
                 </div>
               </div>
             ))}
@@ -844,8 +941,9 @@ export default function HomePage() {
             </h2>
 
             <p className="mt-6 max-w-xl leading-7 text-[#52602B]">
-              Find an event, bring your ideas, and help make your community
-              stronger. Your next meaningful moment starts today.
+              Find an event, bring your ideas, and help make
+              your community stronger. Your next meaningful
+              moment starts today.
             </p>
           </div>
 
@@ -863,7 +961,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* NEWSLETTER */}
+      {/* NEWSLETTER - DESIGN ONLY */}
       <section
         id="newsletter"
         className="bg-[#172A3A] px-5 py-20 text-white md:px-10 lg:py-24"
@@ -878,13 +976,15 @@ export default function HomePage() {
             <h2 className="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
               Stay in the loop.
               <br />
-              <span className="text-[#D5F36A]">Stay inspired.</span>
+              <span className="text-[#D5F36A]">
+                Stay inspired.
+              </span>
             </h2>
 
             <p className="mt-5 max-w-xl text-sm leading-7 text-white/60 sm:text-base">
-              Get the latest community events, inspiring stories, and
-              opportunities to make a difference — delivered straight to
-              your inbox.
+              Get the latest community events, inspiring
+              stories, and opportunities to make a difference
+              — delivered straight to your inbox.
             </p>
           </div>
 
@@ -898,6 +998,7 @@ export default function HomePage() {
                 <h3 className="text-lg font-black">
                   A little good in your inbox.
                 </h3>
+
                 <p className="mt-1 text-xs text-white/50">
                   Community updates, delivered with purpose.
                 </p>
@@ -916,13 +1017,14 @@ export default function HomePage() {
                 type="button"
                 className="flex items-center justify-center gap-2 rounded-full bg-[#D5F36A] px-7 py-4 text-sm font-black text-[#172A3A] transition hover:bg-white"
               >
-                Subscribe <ArrowRight size={17} />
+                Subscribe
+                <ArrowRight size={17} />
               </button>
             </div>
 
             <p className="mt-4 text-[11px] leading-5 text-white/40">
-              Stay connected with the causes and communities that matter
-              to you.
+              Stay connected with the causes and communities
+              that matter to you.
             </p>
           </div>
         </div>
@@ -943,8 +1045,8 @@ export default function HomePage() {
             </Link>
 
             <p className="mt-6 max-w-sm text-sm leading-7 text-white/50">
-              Bringing people together through meaningful community events
-              and positive social action.
+              Bringing people together through meaningful
+              community events and positive social action.
             </p>
           </div>
 
@@ -958,13 +1060,23 @@ export default function HomePage() {
                 All Events
               </Link>
 
-              <Link href="/create-event" className="hover:text-white">
-                Create Event
-              </Link>
+              {isLoggedIn && (
+                <Link
+                  href="/create-event"
+                  className="hover:text-white"
+                >
+                  Create Event
+                </Link>
+              )}
 
-              <Link href="/joined-events" className="hover:text-white">
-                My Events
-              </Link>
+              {isLoggedIn && (
+                <Link
+                  href="/joined-events"
+                  className="hover:text-white"
+                >
+                  My Events
+                </Link>
+              )}
             </div>
           </div>
 
@@ -982,10 +1094,6 @@ export default function HomePage() {
                 Our Stories
               </a>
 
-              <Link href="/manage-events" className="hover:text-white">
-                Manage Events
-              </Link>
-
               <a href="#newsletter" className="hover:text-white">
                 Newsletter
               </a>
@@ -998,17 +1106,30 @@ export default function HomePage() {
             </h3>
 
             <div className="flex flex-col gap-4 text-sm text-white/55">
-              <Link href="/login" className="hover:text-white">
-                Login
-              </Link>
+              {!isLoggedIn ? (
+                <>
+                  <Link href="/login" className="hover:text-white">
+                    Login
+                  </Link>
 
-              <Link href="/register" className="hover:text-white">
-                Register
-              </Link>
+                  <Link href="/register" className="hover:text-white">
+                    Register
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/profile" className="hover:text-white">
+                    My Profile
+                  </Link>
 
-              <Link href="/profile" className="hover:text-white">
-                My Profile
-              </Link>
+                  <Link
+                    href="/manage-events"
+                    className="hover:text-white"
+                  >
+                    Manage Events
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
