@@ -11,9 +11,15 @@ export const auth = betterAuth({
 
   trustedOrigins: [
     "http://localhost:3000",
+
+    // Stable production URL
     "https://kindora-client-git-main-mahim12.vercel.app",
+
+    // Existing preview URL
     "https://kindora-client-psi.vercel.app",
-    "https://kindora-client-qg5osl2qs-mahim12.vercel.app",
+
+    // Kindora preview deployments only
+    "https://kindora-client-*-mahim12.vercel.app",
   ],
 
   emailAndPassword: {
