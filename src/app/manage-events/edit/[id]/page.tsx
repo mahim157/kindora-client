@@ -16,7 +16,19 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-const API_URL = "http://localhost:5000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// Same categories as Create Event page
+const categories = [
+  "Community Service",
+  "Education",
+  "Environment",
+  "Health",
+  "Social Awareness",
+  "Fundraising",
+  "Other",
+];
 
 interface EventForm {
   title: string;
@@ -27,6 +39,8 @@ interface EventForm {
   eventDate: string;
 }
 
+type FormErrors = Partial<Record<keyof EventForm, string>>;
+
 const initialForm: EventForm = {
   title: "",
   description: "",
@@ -36,6 +50,98 @@ const initialForm: EventForm = {
   eventDate: "",
 };
 
+function getTomorrowDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+// Field validation
+function validateField(
+  name: keyof EventForm,
+  value: string
+): string {
+  const trimmed = value.trim();
+
+  switch (name) {
+    case "title":
+      if (!trimmed) return "Event title is required.";
+      if (trimmed.length < 5)
+        return "Title must be at least 5 characters.";
+      if (trimmed.length > 100)
+        return "Title cannot exceed 100 characters.";
+      return "";
+
+    case "description":
+      if (!trimmed) return "Description is required.";
+      if (trimmed.length < 20)
+        return "Description must be at least 20 characters.";
+      if (trimmed.length > 2000)
+        return "Description cannot exceed 2000 characters.";
+      return "";
+
+    case "type":
+      if (!categories.includes(value))
+        return "Please select a valid event category.";
+      return "";
+
+    case "image":
+      if (!trimmed) return "";
+
+      try {
+        const url = new URL(trimmed);
+
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          !url.hostname.includes(".")
+        ) {
+          return "Please enter a valid HTTP or HTTPS image URL.";
+        }
+
+        return "";
+      } catch {
+        return "Please enter a valid image URL.";
+      }
+
+    case "location":
+      if (!trimmed) return "Event location is required.";
+      if (trimmed.length < 3)
+        return "Location must be at least 3 characters.";
+      if (trimmed.length > 150)
+        return "Location cannot exceed 150 characters.";
+      return "";
+
+    case "eventDate":
+      if (!value) return "Event date is required.";
+      if (value < getTomorrowDate())
+        return "Please select a future date.";
+      return "";
+
+    default:
+      return "";
+  }
+}
+
+// Validate complete form
+function validateForm(form: EventForm): FormErrors {
+  const errors: FormErrors = {};
+
+  (Object.keys(form) as (keyof EventForm)[]).forEach((key) => {
+    const error = validateField(key, form[key]);
+
+    if (error) {
+      errors[key] = error;
+    }
+  });
+
+  return errors;
+}
+
 function EditEventContent() {
   const params = useParams();
   const router = useRouter();
@@ -44,8 +150,10 @@ function EditEventContent() {
   const { data: session, isPending } = authClient.useSession();
 
   const [form, setForm] = useState<EventForm>(initialForm);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   // Load existing event
   useEffect(() => {
@@ -82,8 +190,7 @@ function EditEventContent() {
 
         const event = result.data;
 
-        // Verify ownership in the frontend for UX.
-        // Backend still enforces ownership during update.
+        // Verify ownership
         if (
           event.creatorId !== session.user.id &&
           event.creatorEmail !== session.user.email
@@ -94,6 +201,7 @@ function EditEventContent() {
         }
 
         const date = new Date(event.eventDate);
+
         const localDate = new Date(
           date.getTime() - date.getTimezoneOffset() * 60000
         )
@@ -126,29 +234,41 @@ function EditEventContent() {
     loadEvent();
   }, [eventId, isPending, session, router]);
 
+  // Handle input changes
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    const field = name as keyof EventForm;
+
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+
+    if (submitted || errors[field]) {
+      setErrors((previous) => ({
+        ...previous,
+        [field]: validateField(field, value),
+      }));
+    }
   };
 
   // Update event
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
-    if (
-      !form.title.trim() ||
-      !form.description.trim() ||
-      !form.type ||
-      !form.location.trim() ||
-      !form.eventDate
-    ) {
-      toast.error("Please fill in all required fields.");
+    setSubmitted(true);
+
+    const validationErrors = validateForm(form);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix the errors before updating.");
       return;
     }
 
@@ -203,6 +323,7 @@ function EditEventContent() {
     }
   };
 
+  // Loading state
   if (isPending || loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#FFF9F1]">
@@ -242,6 +363,7 @@ function EditEventContent() {
 
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="space-y-6 rounded-2xl border border-[#DCE9DD] bg-white p-5 shadow-sm sm:p-8"
         >
           {/* Title */}
@@ -255,10 +377,19 @@ function EditEventContent() {
               name="title"
               value={form.title}
               onChange={handleChange}
-              required
+              maxLength={100}
               placeholder="Enter event title"
-              className="w-full rounded-xl border border-[#DCE9DD] px-4 py-3 text-sm outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+              aria-invalid={!!errors.title}
+              className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10 ${
+                errors.title ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             />
+
+            {errors.title && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.title}
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -271,14 +402,31 @@ function EditEventContent() {
               name="description"
               value={form.description}
               onChange={handleChange}
-              required
               rows={5}
+              maxLength={2000}
               placeholder="Describe your event..."
-              className="w-full resize-y rounded-xl border border-[#DCE9DD] px-4 py-3 text-sm outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+              aria-invalid={!!errors.description}
+              className={`w-full resize-y rounded-xl border px-4 py-3 text-sm outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10 ${
+                errors.description ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             />
+
+            <div className="mt-1 flex justify-between">
+              {errors.description ? (
+                <p className="text-sm text-red-600">
+                  {errors.description}
+                </p>
+              ) : (
+                <span />
+              )}
+
+              <span className="text-xs text-gray-400">
+                {form.description.length}/2000
+              </span>
+            </div>
           </div>
 
-          {/* Event Type */}
+          {/* Event Category */}
           <div>
             <label className="mb-2 block text-sm font-semibold text-[#26382D]">
               Event Category *
@@ -288,18 +436,25 @@ function EditEventContent() {
               name="type"
               value={form.type}
               onChange={handleChange}
-              required
-              className="w-full rounded-xl border border-[#DCE9DD] bg-white px-4 py-3 text-sm outline-none focus:border-[#174B35]"
+              aria-invalid={!!errors.type}
+              className={`w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:border-[#174B35] ${
+                errors.type ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             >
-              <option value="">Select category</option>
-              <option value="Environment">Environment</option>
-              <option value="Education">Education</option>
-              <option value="Community">Community</option>
-              <option value="Health">Health</option>
-              <option value="Social">Social</option>
-              <option value="Charity">Charity</option>
-              <option value="Other">Other</option>
+              <option value="">Select an event category</option>
+
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
             </select>
+
+            {errors.type && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.type}
+              </p>
+            )}
           </div>
 
           {/* Image */}
@@ -315,10 +470,19 @@ function EditEventContent() {
               value={form.image}
               onChange={handleChange}
               placeholder="https://example.com/image.jpg"
-              className="w-full rounded-xl border border-[#DCE9DD] px-4 py-3 text-sm outline-none focus:border-[#174B35]"
+              aria-invalid={!!errors.image}
+              className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-[#174B35] ${
+                errors.image ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             />
 
-            {form.image && (
+            {errors.image && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.image}
+              </p>
+            )}
+
+            {form.image && !errors.image && (
               <img
                 src={form.image}
                 alt="Event preview"
@@ -339,10 +503,19 @@ function EditEventContent() {
               name="location"
               value={form.location}
               onChange={handleChange}
-              required
+              maxLength={150}
               placeholder="Enter event location"
-              className="w-full rounded-xl border border-[#DCE9DD] px-4 py-3 text-sm outline-none focus:border-[#174B35]"
+              aria-invalid={!!errors.location}
+              className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-[#174B35] ${
+                errors.location ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             />
+
+            {errors.location && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.location}
+              </p>
+            )}
           </div>
 
           {/* Date */}
@@ -357,10 +530,18 @@ function EditEventContent() {
               name="eventDate"
               value={form.eventDate}
               onChange={handleChange}
-              required
-              min={new Date().toLocaleDateString("en-CA")}
-              className="w-full rounded-xl border border-[#DCE9DD] px-4 py-3 text-sm outline-none focus:border-[#174B35]"
+              min={getTomorrowDate()}
+              aria-invalid={!!errors.eventDate}
+              className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-[#174B35] ${
+                errors.eventDate ? "border-red-500" : "border-[#DCE9DD]"
+              }`}
             />
+
+            {errors.eventDate && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.eventDate}
+              </p>
+            )}
           </div>
 
           {/* Buttons */}
@@ -403,4 +584,3 @@ export default function EditEventPage() {
     </ProtectedRoute>
   );
 }
-

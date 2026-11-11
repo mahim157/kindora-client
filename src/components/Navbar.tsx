@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -17,8 +17,12 @@ import {
   X,
   ChevronDown,
   ArrowUpRight,
+  Sun,
+  Moon,
 } from "lucide-react";
+
 import { authClient } from "@/lib/auth-client";
+import { useTheme } from "@/components/ThemeProvider";
 import toast from "react-hot-toast";
 
 const publicLinks = [
@@ -27,26 +31,10 @@ const publicLinks = [
 ];
 
 const accountLinks = [
-  {
-    name: "Create Event",
-    href: "/create-event",
-    icon: Plus,
-  },
-  {
-    name: "Manage Events",
-    href: "/manage-events",
-    icon: LayoutDashboard,
-  },
-  {
-    name: "My Events",
-    href: "/joined-events",
-    icon: CalendarDays,
-  },
-  {
-    name: "My Profile",
-    href: "/profile",
-    icon: UserRound,
-  },
+  { name: "Create Event", href: "/create-event", icon: Plus },
+  { name: "Manage Events", href: "/manage-events", icon: LayoutDashboard },
+  { name: "My Events", href: "/joined-events", icon: CalendarDays },
+  { name: "My Profile", href: "/profile", icon: UserRound },
 ];
 
 export default function Navbar() {
@@ -55,9 +43,21 @@ export default function Navbar() {
 
   const { data: session, isPending } = authClient.useSession();
 
+  const { theme, toggleTheme, mounted } = useTheme();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Wait until Navbar is mounted on the client
+  const [navbarMounted, setNavbarMounted] = useState(false);
+
+  useEffect(() => {
+    setNavbarMounted(true);
+  }, []);
+
+  // Apply theme only after hydration
+  const isDark = mounted && navbarMounted && theme === "dark";
 
   const user = session?.user;
   const isLoggedIn = Boolean(user);
@@ -98,8 +98,38 @@ export default function Navbar() {
     }
   };
 
+  // Theme Toggle Button
+  const themeButton = (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={
+        isDark ? "Switch to light mode" : "Switch to dark mode"
+      }
+      title={isDark ? "Light Mode" : "Dark Mode"}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
+        isDark
+          ? "border-white/15 bg-white/10 text-yellow-300 hover:bg-white/20"
+          : "border-[#172A3A]/15 bg-white/60 text-[#172A3A] hover:bg-[#D5F36A]"
+      }`}
+    >
+      {isDark ? <Sun size={19} /> : <Moon size={19} />}
+    </button>
+  );
+
+  // Prevent server/client hydration mismatch
+  if (!mounted || !navbarMounted) {
+    return null;
+  }
+
   return (
-    <header className="sticky top-0 z-[100] border-b border-[#172A3A]/10 bg-[#F4F0E8]/95 backdrop-blur-xl">
+    <header
+      className={`sticky top-0 z-[100] border-b backdrop-blur-xl transition-colors duration-300 ${
+        isDark
+          ? "border-white/10 bg-[#111C25]/95"
+          : "border-[#172A3A]/10 bg-[#F4F0E8]/95"
+      }`}
+    >
       <div className="mx-auto flex h-[76px] max-w-[1400px] items-center justify-between px-5 md:px-10">
 
         {/* LOGO */}
@@ -112,12 +142,16 @@ export default function Navbar() {
             <HeartHandshake size={22} />
           </span>
 
-          <span className="text-[25px] font-black tracking-tight text-[#172A3A]">
+          <span
+            className={`text-[25px] font-black tracking-tight ${
+              isDark ? "text-white" : "text-[#172A3A]"
+            }`}
+          >
             kindora<span className="text-[#829C37]">.</span>
           </span>
         </Link>
 
-        {/* DESKTOP PUBLIC NAVIGATION */}
+        {/* DESKTOP NAVIGATION */}
         <nav className="hidden items-center gap-8 xl:flex">
           {publicLinks.map((link) => (
             <Link
@@ -125,8 +159,12 @@ export default function Navbar() {
               href={link.href}
               className={`relative py-2 text-sm font-bold transition ${
                 isActive(link.href)
-                  ? "text-[#172A3A]"
-                  : "text-[#687680] hover:text-[#172A3A]"
+                  ? isDark
+                    ? "text-white"
+                    : "text-[#172A3A]"
+                  : isDark
+                    ? "text-gray-400 hover:text-white"
+                    : "text-[#687680] hover:text-[#172A3A]"
               }`}
             >
               {link.name}
@@ -138,18 +176,24 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* DESKTOP ACCOUNT AREA */}
+        {/* DESKTOP ACCOUNT */}
         <div className="hidden items-center gap-4 xl:flex">
+          {themeButton}
+
           {isPending ? (
             <div className="h-10 w-32 animate-pulse rounded-full bg-[#172A3A]/10" />
           ) : isLoggedIn ? (
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setAccountOpen((previous) => !previous)}
+                onClick={() => setAccountOpen((prev) => !prev)}
                 aria-expanded={accountOpen}
                 aria-label="Open account menu"
-                className="flex items-center gap-3 rounded-full border border-[#172A3A]/15 bg-white/60 py-1.5 pl-1.5 pr-3 transition hover:border-[#829C37]"
+                className={`flex items-center gap-3 rounded-full border py-1.5 pl-1.5 pr-3 transition ${
+                  isDark
+                    ? "border-white/15 bg-white/10 hover:border-[#829C37]"
+                    : "border-[#172A3A]/15 bg-white/60 hover:border-[#829C37]"
+                }`}
               >
                 {user?.image ? (
                   <img
@@ -163,15 +207,19 @@ export default function Navbar() {
                   </span>
                 )}
 
-                <span className="max-w-[130px] truncate text-sm font-bold text-[#172A3A]">
+                <span
+                  className={`max-w-[130px] truncate text-sm font-bold ${
+                    isDark ? "text-white" : "text-[#172A3A]"
+                  }`}
+                >
                   {displayName}
                 </span>
 
                 <ChevronDown
                   size={16}
-                  className={`text-[#687680] transition ${
-                    accountOpen ? "rotate-180" : ""
-                  }`}
+                  className={`transition ${
+                    isDark ? "text-gray-400" : "text-[#687680]"
+                  } ${accountOpen ? "rotate-180" : ""}`}
                 />
               </button>
 
@@ -184,11 +232,28 @@ export default function Navbar() {
                     onClick={() => setAccountOpen(false)}
                   />
 
-                  <div className="absolute right-0 top-[calc(100%+14px)] z-50 w-64 overflow-hidden rounded-2xl border border-[#172A3A]/10 bg-[#F4F0E8] p-2 shadow-2xl">
-                    <div className="border-b border-[#172A3A]/10 px-3 py-3">
-                      <p className="truncate text-sm font-black text-[#172A3A]">
+                  <div
+                    className={`absolute right-0 top-[calc(100%+14px)] z-50 w-64 overflow-hidden rounded-2xl border p-2 shadow-2xl ${
+                      isDark
+                        ? "border-white/10 bg-[#1B2A35]"
+                        : "border-[#172A3A]/10 bg-[#F4F0E8]"
+                    }`}
+                  >
+                    <div
+                      className={`border-b px-3 py-3 ${
+                        isDark
+                          ? "border-white/10"
+                          : "border-[#172A3A]/10"
+                      }`}
+                    >
+                      <p
+                        className={`truncate text-sm font-black ${
+                          isDark ? "text-white" : "text-[#172A3A]"
+                        }`}
+                      >
                         {displayName}
                       </p>
+
                       <p className="mt-1 truncate text-xs text-[#73808A]">
                         {user?.email}
                       </p>
@@ -207,7 +272,9 @@ export default function Navbar() {
                             className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${
                               active
                                 ? "bg-[#172A3A] text-white"
-                                : "text-[#52616C] hover:bg-[#172A3A]/5 hover:text-[#172A3A]"
+                                : isDark
+                                  ? "text-gray-300 hover:bg-white/10 hover:text-white"
+                                  : "text-[#52616C] hover:bg-[#172A3A]/5 hover:text-[#172A3A]"
                             }`}
                           >
                             <Icon size={17} />
@@ -221,12 +288,18 @@ export default function Navbar() {
                       })}
                     </div>
 
-                    <div className="border-t border-[#172A3A]/10 pt-2">
+                    <div
+                      className={`border-t pt-2 ${
+                        isDark
+                          ? "border-white/10"
+                          : "border-[#172A3A]/10"
+                      }`}
+                    >
                       <button
                         type="button"
                         onClick={handleLogout}
                         disabled={loggingOut}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-500 transition hover:bg-red-500/10 disabled:opacity-50"
                       >
                         <LogOut size={17} />
                         {loggingOut ? "Signing out..." : "Sign Out"}
@@ -240,7 +313,11 @@ export default function Navbar() {
             <>
               <Link
                 href="/login"
-                className="flex items-center gap-2 text-sm font-bold text-[#172A3A] transition hover:text-[#829C37]"
+                className={`flex items-center gap-2 text-sm font-bold transition ${
+                  isDark
+                    ? "text-gray-200 hover:text-[#D5F36A]"
+                    : "text-[#172A3A] hover:text-[#829C37]"
+                }`}
               >
                 <LogIn size={17} />
                 Login
@@ -257,20 +334,34 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* MOBILE MENU BUTTON */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen((previous) => !previous)}
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#172A3A]/15 text-[#172A3A] transition hover:bg-white xl:hidden"
-        >
-          {menuOpen ? <X size={21} /> : <Menu size={21} />}
-        </button>
+        {/* MOBILE BUTTONS */}
+        <div className="flex items-center gap-2 xl:hidden">
+          {themeButton}
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border transition ${
+              isDark
+                ? "border-white/15 text-white hover:bg-white/10"
+                : "border-[#172A3A]/15 text-[#172A3A] hover:bg-white"
+            }`}
+          >
+            {menuOpen ? <X size={21} /> : <Menu size={21} />}
+          </button>
+        </div>
       </div>
 
       {/* MOBILE NAVIGATION */}
       {menuOpen && (
-        <div className="border-t border-[#172A3A]/10 bg-[#F4F0E8] px-5 pb-6 pt-4 shadow-xl xl:hidden">
+        <div
+          className={`border-t px-5 pb-6 pt-4 shadow-xl xl:hidden ${
+            isDark
+              ? "border-white/10 bg-[#111C25]"
+              : "border-[#172A3A]/10 bg-[#F4F0E8]"
+          }`}
+        >
           <nav className="flex flex-col gap-1">
             {publicLinks.map((link) => (
               <Link
@@ -280,7 +371,9 @@ export default function Navbar() {
                 className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
                   isActive(link.href)
                     ? "bg-[#172A3A] text-white"
-                    : "text-[#52616C] hover:bg-white"
+                    : isDark
+                      ? "text-gray-300 hover:bg-white/10"
+                      : "text-[#52616C] hover:bg-white"
                 }`}
               >
                 {link.name}
@@ -288,13 +381,21 @@ export default function Navbar() {
             ))}
           </nav>
 
-          <div className="my-4 border-t border-[#172A3A]/10" />
+          <div
+            className={`my-4 border-t ${
+              isDark ? "border-white/10" : "border-[#172A3A]/10"
+            }`}
+          />
 
           {isPending ? (
             <div className="h-12 animate-pulse rounded-xl bg-[#172A3A]/10" />
           ) : isLoggedIn ? (
             <>
-              <div className="mb-3 flex items-center gap-3 rounded-xl bg-white/70 p-3">
+              <div
+                className={`mb-3 flex items-center gap-3 rounded-xl p-3 ${
+                  isDark ? "bg-white/10" : "bg-white/70"
+                }`}
+              >
                 {user?.image ? (
                   <img
                     src={user.image}
@@ -308,9 +409,14 @@ export default function Navbar() {
                 )}
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[#172A3A]">
+                  <p
+                    className={`truncate text-sm font-black ${
+                      isDark ? "text-white" : "text-[#172A3A]"
+                    }`}
+                  >
                     {displayName}
                   </p>
+
                   <p className="truncate text-xs text-[#73808A]">
                     {user?.email}
                   </p>
@@ -333,7 +439,9 @@ export default function Navbar() {
                       className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                         isActive(link.href)
                           ? "bg-[#172A3A] text-white"
-                          : "text-[#52616C] hover:bg-white"
+                          : isDark
+                            ? "text-gray-300 hover:bg-white/10"
+                            : "text-[#52616C] hover:bg-white"
                       }`}
                     >
                       <Icon size={17} />
@@ -347,7 +455,7 @@ export default function Navbar() {
                 type="button"
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-3 text-sm font-bold text-red-500 transition hover:bg-red-500/10 disabled:opacity-50"
               >
                 <LogOut size={17} />
                 {loggingOut ? "Signing out..." : "Sign Out"}
@@ -358,7 +466,11 @@ export default function Navbar() {
               <Link
                 href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center justify-center gap-2 rounded-full border border-[#172A3A]/20 py-3 text-sm font-bold text-[#172A3A]"
+                className={`flex items-center justify-center gap-2 rounded-full border py-3 text-sm font-bold ${
+                  isDark
+                    ? "border-white/20 text-white"
+                    : "border-[#172A3A]/20 text-[#172A3A]"
+                }`}
               >
                 <LogIn size={16} />
                 Login

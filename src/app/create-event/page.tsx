@@ -39,6 +39,8 @@ interface EventForm {
   date: string;
 }
 
+type FormErrors = Partial<Record<keyof EventForm, string>>;
+
 const initialForm: EventForm = {
   title: "",
   description: "",
@@ -48,11 +50,73 @@ const initialForm: EventForm = {
   date: "",
 };
 
+function validateForm(form: EventForm): FormErrors {
+  const errors: FormErrors = {};
+
+  if (form.title.trim().length < 5) {
+    errors.title = "Title must contain at least 5 characters.";
+  } else if (form.title.trim().length > 100) {
+    errors.title = "Title cannot exceed 100 characters.";
+  }
+
+  if (form.description.trim().length < 20) {
+    errors.description =
+      "Description must contain at least 20 characters.";
+  } else if (form.description.trim().length > 2000) {
+    errors.description =
+      "Description cannot exceed 2000 characters.";
+  }
+
+  if (!eventTypes.includes(form.type)) {
+    errors.type = "Please select a valid event category.";
+  }
+
+  if (form.image.trim()) {
+    try {
+      const url = new URL(form.image.trim());
+
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        !url.hostname.includes(".")
+      ) {
+        errors.image = "Please enter a valid HTTP or HTTPS image URL.";
+      }
+    } catch {
+      errors.image = "Please enter a valid image URL.";
+    }
+  }
+
+  if (form.location.trim().length < 3) {
+    errors.location =
+      "Location must contain at least 3 characters.";
+  } else if (form.location.trim().length > 150) {
+    errors.location = "Location cannot exceed 150 characters.";
+  }
+
+  if (!form.date) {
+    errors.date = "Please select an event date.";
+  } else {
+    const selectedDate = new Date(`${form.date}T23:59:59`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (
+      Number.isNaN(selectedDate.getTime()) ||
+      selectedDate < today
+    ) {
+      errors.date = "Please select today or a future date.";
+    }
+  }
+
+  return errors;
+}
+
 function CreateEventContent() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
 
   const [form, setForm] = useState<EventForm>(initialForm);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [minDate, setMinDate] = useState("");
 
@@ -72,9 +136,18 @@ function CreateEventContent() {
   ) => {
     const { name, value } = e.target;
 
-    setForm((previous) => ({
-      ...previous,
+    const updatedForm = {
+      ...form,
       [name]: value,
+    };
+
+    setForm(updatedForm);
+
+    const fieldErrors = validateForm(updatedForm);
+
+    setErrors((previous) => ({
+      ...previous,
+      [name]: fieldErrors[name as keyof EventForm],
     }));
   };
 
@@ -87,38 +160,17 @@ function CreateEventContent() {
       return;
     }
 
-    if (!form.title.trim() || !form.description.trim()) {
-      toast.error("Please enter the event title and description.");
+    const validationErrors = validateForm(form);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please correct the errors in the form.");
       return;
-    }
-
-    if (!form.type || !form.location.trim() || !form.date) {
-      toast.error("Please complete all required fields.");
-      return;
-    }
-
-    if (form.date < minDate) {
-      toast.error("Please select today or a future date.");
-      return;
-    }
-
-    if (form.image.trim()) {
-      try {
-        const imageUrl = new URL(form.image.trim());
-
-        if (!["http:", "https:"].includes(imageUrl.protocol)) {
-          throw new Error("Invalid image URL");
-        }
-      } catch {
-        toast.error("Please enter a valid image URL.");
-        return;
-      }
     }
 
     try {
       setLoading(true);
 
-      // Get JWT token from Better Auth
       const { data, error } = await authClient.token();
 
       if (error || !data?.token) {
@@ -127,7 +179,6 @@ function CreateEventContent() {
         return;
       }
 
-      // Send event data to Express backend
       const response = await fetch(`${API_URL}/api/events`, {
         method: "POST",
         headers: {
@@ -155,6 +206,7 @@ function CreateEventContent() {
       toast.success("Your event has been created successfully!");
 
       setForm(initialForm);
+      setErrors({});
 
       router.push("/manage-events");
       router.refresh();
@@ -171,14 +223,34 @@ function CreateEventContent() {
     }
   };
 
+  // Dark-mode-aware input styles
+  const inputClass = (field: keyof EventForm) =>
+    `w-full rounded-xl border ${
+      errors[field]
+        ? "border-red-400 bg-red-50/40 dark:border-red-500 dark:bg-red-950/30"
+        : "border-[#174B35]/15 bg-[#FFF9F1]/50 dark:border-white/15 dark:bg-[#172A24]"
+    } px-4 py-3 text-sm text-[#26382D] outline-none transition placeholder:text-[#26382D]/35 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10 dark:text-[#F1F5F1] dark:placeholder:text-gray-400 dark:focus:border-[#9CCB85] dark:focus:ring-[#9CCB85]/20`;
+
+  const labelClass =
+    "mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D] dark:text-gray-200";
+
+  const iconClass = "text-[#174B35] dark:text-[#9CCB85]";
+
+  const errorText = (field: keyof EventForm) =>
+    errors[field] ? (
+      <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+        {errors[field]}
+      </p>
+    ) : null;
+
   return (
-    <div className="min-h-screen bg-[#FFF9F1] px-4 py-10 sm:px-6 lg:py-14">
+    <div className="min-h-screen bg-[#FFF9F1] px-4 py-10 transition-colors duration-300 dark:bg-[#101C17] sm:px-6 lg:py-14">
       <div className="mx-auto max-w-4xl">
 
-        {/* Back Navigation */}
+        {/* Back to Home */}
         <Link
           href="/"
-          className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-[#174B35] transition hover:text-[#E99A62]"
+          className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-[#174B35] transition hover:text-[#E99A62] dark:text-[#B8D9A7] dark:hover:text-[#E99A62]"
         >
           <ArrowLeft size={17} />
           Back to Home
@@ -186,43 +258,42 @@ function CreateEventContent() {
 
         {/* Page Heading */}
         <div className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#DCE9DD] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#174B35]">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#DCE9DD] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#174B35] dark:bg-[#294638] dark:text-[#C6E5B8]">
             <PlusCircle size={15} />
             Create an Event
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight text-[#174B35] sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-[#174B35] dark:text-[#E6F2E3] sm:text-4xl">
             Make Something{" "}
-            <span className="text-[#E99A62]">Meaningful.</span>
+            <span className="text-[#E99A62]">
+              Meaningful.
+            </span>
           </h1>
 
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#26382D]/70 sm:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#26382D]/70 dark:text-gray-300 sm:text-base">
             Bring people together, share your ideas, and create a positive
             impact in your community.
           </p>
         </div>
 
         {/* Form Card */}
-        <div className="rounded-3xl border border-[#174B35]/10 bg-white p-5 shadow-[0_12px_45px_rgba(23,75,53,0.06)] sm:p-8">
+        <div className="rounded-3xl border border-[#174B35]/10 bg-white p-5 shadow-[0_12px_45px_rgba(23,75,53,0.06)] transition-colors duration-300 dark:border-white/10 dark:bg-[#1A2B23] sm:p-8">
 
-          <div className="mb-7 border-b border-[#174B35]/10 pb-5">
-            <h2 className="text-xl font-bold text-[#174B35]">
+          <div className="mb-7 border-b border-[#174B35]/10 pb-5 dark:border-white/10">
+            <h2 className="text-xl font-bold text-[#174B35] dark:text-[#E6F2E3]">
               Event Information
             </h2>
-            <p className="mt-1 text-sm text-[#26382D]/60">
+            <p className="mt-1 text-sm text-[#26382D]/60 dark:text-gray-400">
               Fill in the details to publish your event.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
 
             {/* Event Title */}
             <div>
-              <label
-                htmlFor="title"
-                className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D]"
-              >
-                <FileText size={17} className="text-[#174B35]" />
+              <label htmlFor="title" className={labelClass}>
+                <FileText size={17} className={iconClass} />
                 Event Title <span className="text-red-500">*</span>
               </label>
 
@@ -230,58 +301,56 @@ function CreateEventContent() {
                 id="title"
                 name="title"
                 type="text"
-                required
                 maxLength={100}
                 value={form.title}
                 onChange={handleChange}
                 placeholder="e.g. Community Clean-up Campaign"
-                className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition placeholder:text-[#26382D]/35 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                aria-invalid={!!errors.title}
+                className={inputClass("title")}
               />
+
+              {errorText("title")}
             </div>
 
             {/* Description */}
             <div>
-              <label
-                htmlFor="description"
-                className="mb-2 block text-sm font-semibold text-[#26382D]"
-              >
+              <label htmlFor="description" className={labelClass}>
                 Event Description <span className="text-red-500">*</span>
               </label>
 
               <textarea
                 id="description"
                 name="description"
-                required
                 rows={5}
                 maxLength={2000}
                 value={form.description}
                 onChange={handleChange}
                 placeholder="Describe your event, its purpose and what participants can expect..."
-                className="w-full resize-y rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition placeholder:text-[#26382D]/35 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                aria-invalid={!!errors.description}
+                className={`${inputClass("description")} resize-y`}
               />
 
-              <p className="mt-1 text-right text-xs text-[#26382D]/45">
+              {errorText("description")}
+
+              <p className="mt-1 text-right text-xs text-[#26382D]/45 dark:text-gray-400">
                 {form.description.length}/2000
               </p>
             </div>
 
             {/* Event Type */}
             <div>
-              <label
-                htmlFor="type"
-                className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D]"
-              >
-                <Tag size={17} className="text-[#174B35]" />
+              <label htmlFor="type" className={labelClass}>
+                <Tag size={17} className={iconClass} />
                 Event Type <span className="text-red-500">*</span>
               </label>
 
               <select
                 id="type"
                 name="type"
-                required
                 value={form.type}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                aria-invalid={!!errors.type}
+                className={inputClass("type")}
               >
                 <option value="">Select an event category</option>
 
@@ -291,15 +360,14 @@ function CreateEventContent() {
                   </option>
                 ))}
               </select>
+
+              {errorText("type")}
             </div>
 
             {/* Image URL */}
             <div>
-              <label
-                htmlFor="image"
-                className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D]"
-              >
-                <ImagePlus size={17} className="text-[#174B35]" />
+              <label htmlFor="image" className={labelClass}>
+                <ImagePlus size={17} className={iconClass} />
                 Event Image URL
               </label>
 
@@ -310,10 +378,13 @@ function CreateEventContent() {
                 value={form.image}
                 onChange={handleChange}
                 placeholder="https://example.com/event-image.jpg"
-                className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition placeholder:text-[#26382D]/35 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                aria-invalid={!!errors.image}
+                className={inputClass("image")}
               />
 
-              <p className="mt-1 text-xs text-[#26382D]/50">
+              {errorText("image")}
+
+              <p className="mt-1 text-xs text-[#26382D]/50 dark:text-gray-400">
                 Provide a publicly accessible image URL.
               </p>
             </div>
@@ -322,11 +393,8 @@ function CreateEventContent() {
             <div className="grid gap-6 sm:grid-cols-2">
 
               <div>
-                <label
-                  htmlFor="location"
-                  className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D]"
-                >
-                  <MapPin size={17} className="text-[#174B35]" />
+                <label htmlFor="location" className={labelClass}>
+                  <MapPin size={17} className={iconClass} />
                   Event Location <span className="text-red-500">*</span>
                 </label>
 
@@ -334,20 +402,20 @@ function CreateEventContent() {
                   id="location"
                   name="location"
                   type="text"
-                  required
+                  maxLength={150}
                   value={form.location}
                   onChange={handleChange}
                   placeholder="Enter event location"
-                  className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition placeholder:text-[#26382D]/35 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                  aria-invalid={!!errors.location}
+                  className={inputClass("location")}
                 />
+
+                {errorText("location")}
               </div>
 
               <div>
-                <label
-                  htmlFor="date"
-                  className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#26382D]"
-                >
-                  <CalendarDays size={17} className="text-[#174B35]" />
+                <label htmlFor="date" className={labelClass}>
+                  <CalendarDays size={17} className={iconClass} />
                   Event Date <span className="text-red-500">*</span>
                 </label>
 
@@ -355,33 +423,39 @@ function CreateEventContent() {
                   id="date"
                   name="date"
                   type="date"
-                  required
                   min={minDate || undefined}
                   value={form.date}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-[#174B35]/15 bg-[#FFF9F1]/50 px-4 py-3 text-sm text-[#26382D] outline-none transition focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10"
+                  aria-invalid={!!errors.date}
+                  className={inputClass("date")}
                 />
+
+                {errorText("date")}
               </div>
             </div>
 
             {/* Creator Info */}
-            <div className="rounded-xl bg-[#DCE9DD]/60 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#174B35]/70">
+            <div className="rounded-xl bg-[#DCE9DD]/60 p-4 dark:bg-[#294638]">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#174B35]/70 dark:text-[#C6E5B8]/80">
                 Event Organizer
               </p>
 
-              <p className="mt-1 break-all text-sm font-medium text-[#174B35]">
+              <p className="mt-1 break-all text-sm font-medium text-[#174B35] dark:text-white">
                 {session?.user?.email || "Loading user..."}
               </p>
             </div>
 
-            {/* Submit */}
-            <div className="flex flex-col-reverse gap-3 border-t border-[#174B35]/10 pt-6 sm:flex-row sm:justify-end">
+            {/* Submit Buttons */}
+            <div className="flex flex-col-reverse gap-3 border-t border-[#174B35]/10 pt-6 dark:border-white/10 sm:flex-row sm:justify-end">
+
               <button
                 type="button"
-                onClick={() => setForm(initialForm)}
+                onClick={() => {
+                  setForm(initialForm);
+                  setErrors({});
+                }}
                 disabled={loading}
-                className="rounded-xl border border-[#174B35]/20 px-6 py-3 text-sm font-semibold text-[#174B35] transition hover:bg-[#DCE9DD] disabled:opacity-50"
+                className="rounded-xl border border-[#174B35]/20 px-6 py-3 text-sm font-semibold text-[#174B35] transition hover:bg-[#DCE9DD] disabled:opacity-50 dark:border-white/20 dark:text-gray-200 dark:hover:bg-white/10"
               >
                 Reset Form
               </button>
@@ -389,16 +463,17 @@ function CreateEventContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#174B35] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#174B35]/15 transition hover:bg-[#103B29] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#174B35] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#174B35]/15 transition hover:bg-[#103B29] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#6D985D] dark:text-[#102016] dark:hover:bg-[#85B875]"
               >
                 <PlusCircle size={18} />
                 {loading ? "Creating Event..." : "Create Event"}
               </button>
+
             </div>
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#26382D]/50">
+        <p className="mt-6 text-center text-xs text-[#26382D]/50 dark:text-gray-400">
           Every event starts with an idea. Let&apos;s make yours meaningful.
         </p>
       </div>

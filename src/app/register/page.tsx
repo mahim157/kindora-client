@@ -18,6 +18,14 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
+interface FormErrors {
+  name?: string;
+  email?: string;
+  photoURL?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -30,53 +38,158 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitted, setSubmitted] = useState(false);
 
   const inputClass =
-    "w-full rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-4 py-3.5 text-sm text-[#26382D] outline-none transition-all placeholder:text-[#AAA69D] hover:border-[#C7D5C8] focus:border-[#78947E] focus:ring-4 focus:ring-[#DCE9DD]/60";
+    "w-full rounded-xl border bg-[#FFFEFC] px-4 py-3.5 text-sm text-[#26382D] outline-none transition-all placeholder:text-[#AAA69D] hover:border-[#C7D5C8] focus:border-[#78947E] focus:ring-4 focus:ring-[#DCE9DD]/60";
+
+  // Validation functions
+  const validateName = (value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) return "Full name is required.";
+    if (trimmed.length < 2)
+      return "Name must be at least 2 characters.";
+    if (trimmed.length > 80)
+      return "Name cannot exceed 80 characters.";
+
+    return "";
+  };
+
+  const validateEmail = (value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) return "Email address is required.";
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(trimmed))
+      return "Please enter a valid email address.";
+
+    return "";
+  };
+
+  const validatePhotoURL = (value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) return "";
+
+    try {
+      const url = new URL(trimmed);
+
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        !url.hostname.includes(".")
+      ) {
+        return "Please enter a valid HTTP or HTTPS photo URL.";
+      }
+
+      return "";
+    } catch {
+      return "Please enter a valid photo URL.";
+    }
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return "Password is required.";
+
+    if (value.length < 6)
+      return "Password must be at least 6 characters.";
+
+    if (!/[A-Z]/.test(value))
+      return "Password must contain an uppercase letter.";
+
+    if (!/[a-z]/.test(value))
+      return "Password must contain a lowercase letter.";
+
+    return "";
+  };
+
+  const validateConfirmPassword = (
+    value: string,
+    currentPassword: string
+  ) => {
+    if (!value) return "Please confirm your password.";
+
+    if (value !== currentPassword)
+      return "Passwords do not match.";
+
+    return "";
+  };
+
+  // Validate complete form
+  const validateForm = () => {
+    const newErrors: FormErrors = {
+      name: validateName(name),
+      email: validateEmail(email),
+      photoURL: validatePhotoURL(photoURL),
+      password: validatePassword(password),
+      confirmPassword: validateConfirmPassword(
+        confirmPassword,
+        password
+      ),
+    };
+
+    setErrors(newErrors);
+
+    return !Object.values(newErrors).some(Boolean);
+  };
+
+  // Revalidate changed fields after submission
+  const updateError = (
+    field: keyof FormErrors,
+    value: string
+  ) => {
+    if (!submitted) return;
+
+    let error = "";
+
+    switch (field) {
+      case "name":
+        error = validateName(value);
+        break;
+      case "email":
+        error = validateEmail(value);
+        break;
+      case "photoURL":
+        error = validatePhotoURL(value);
+        break;
+      case "password":
+        error = validatePassword(value);
+        break;
+      case "confirmPassword":
+        error = validateConfirmPassword(value, password);
+        break;
+    }
+
+    setErrors((previous) => ({
+      ...previous,
+      [field]: error,
+      ...(field === "password"
+        ? {
+            confirmPassword: validateConfirmPassword(
+              confirmPassword,
+              value
+            ),
+          }
+        : {}),
+    }));
+  };
 
   // Registration Handler
-  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (
+    e: FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     if (loading) return;
 
-    if (name.trim().length < 2) {
-      toast.error("Please enter your full name.");
+    setSubmitted(true);
+
+    if (!validateForm()) {
+      toast.error("Please fix the errors before creating your account.");
       return;
-    }
-
-    if (!email.trim()) {
-      toast.error("Please enter your email address.");
-      return;
-    }
-
-    if (
-      password.length < 6 ||
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password)
-    ) {
-      toast.error(
-        "Password needs at least 6 characters, including uppercase and lowercase letters."
-      );
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
-    if (photoURL.trim()) {
-      try {
-        const url = new URL(photoURL.trim());
-
-        if (!["http:", "https:"].includes(url.protocol)) {
-          throw new Error("Invalid URL");
-        }
-      } catch {
-        toast.error("Please enter a valid photo URL.");
-        return;
-      }
     }
 
     try {
@@ -86,13 +199,16 @@ export default function RegisterPage() {
         name: name.trim(),
         email: email.trim(),
         password,
-        ...(photoURL.trim() ? { image: photoURL.trim() } : {}),
+        ...(photoURL.trim()
+          ? { image: photoURL.trim() }
+          : {}),
         callbackURL: "/",
       });
 
       if (result.error) {
         toast.error(
-          result.error.message || "Registration failed. Please try again."
+          result.error.message ||
+            "Registration failed. Please try again."
         );
         return;
       }
@@ -118,7 +234,6 @@ export default function RegisterPage() {
 
       {/* Left Hero Section */}
       <section className="relative hidden w-[48%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#123D2B] via-[#174B35] to-[#286747] p-12 text-white lg:flex xl:p-16">
-        {/* Decorative Circles */}
         <div className="absolute -right-32 -top-32 h-[430px] w-[430px] rounded-full border border-white/10" />
 
         <div className="absolute -right-16 -top-16 h-[300px] w-[300px] rounded-full border border-white/10" />
@@ -203,7 +318,6 @@ export default function RegisterPage() {
 
           {/* Registration Card */}
           <div className="rounded-[28px] border border-[#EEE8DE] bg-white p-6 shadow-[0_20px_70px_rgba(38,56,45,0.07)] sm:p-9">
-            {/* Heading */}
             <div className="mb-6">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#E9D9C8] bg-[#F8EBDD] px-3.5 py-2 text-xs font-bold tracking-wide text-[#8C5736]">
                 <Leaf size={15} />
@@ -220,7 +334,11 @@ export default function RegisterPage() {
             </div>
 
             {/* Registration Form */}
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form
+              onSubmit={handleRegister}
+              noValidate
+              className="space-y-4"
+            >
               {/* Full Name */}
               <div>
                 <label
@@ -235,12 +353,23 @@ export default function RegisterPage() {
                   type="text"
                   placeholder="Enter your full name"
                   autoComplete="name"
-                  required
-                  minLength={2}
+                  maxLength={80}
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={inputClass}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    updateError("name", e.target.value);
+                  }}
+                  aria-invalid={!!errors.name}
+                  className={`${inputClass} ${
+                    errors.name ? "border-red-500" : "border-[#E9E5DC]"
+                  }`}
                 />
+
+                {errors.name && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">
+                    {errors.name}
+                  </p>
+                )}
               </div>
 
               {/* Email */}
@@ -257,11 +386,22 @@ export default function RegisterPage() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
-                  required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    updateError("email", e.target.value);
+                  }}
+                  aria-invalid={!!errors.email}
+                  className={`${inputClass} ${
+                    errors.email ? "border-red-500" : "border-[#E9E5DC]"
+                  }`}
                 />
+
+                {errors.email && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               {/* Photo URL */}
@@ -281,9 +421,21 @@ export default function RegisterPage() {
                   type="url"
                   placeholder="https://example.com/photo.jpg"
                   value={photoURL}
-                  onChange={(e) => setPhotoURL(e.target.value)}
-                  className={inputClass}
+                  onChange={(e) => {
+                    setPhotoURL(e.target.value);
+                    updateError("photoURL", e.target.value);
+                  }}
+                  aria-invalid={!!errors.photoURL}
+                  className={`${inputClass} ${
+                    errors.photoURL ? "border-red-500" : "border-[#E9E5DC]"
+                  }`}
                 />
+
+                {errors.photoURL && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">
+                    {errors.photoURL}
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -301,10 +453,15 @@ export default function RegisterPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
                     autoComplete="new-password"
-                    required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`${inputClass} pr-12`}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      updateError("password", e.target.value);
+                    }}
+                    aria-invalid={!!errors.password}
+                    className={`${inputClass} pr-12 ${
+                      errors.password ? "border-red-500" : "border-[#E9E5DC]"
+                    }`}
                   />
 
                   <button
@@ -320,6 +477,12 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
+
+                {errors.password && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">
+                    {errors.password}
+                  </p>
+                )}
 
                 <p className="mt-2 text-xs text-[#92998F]">
                   Minimum 6 characters, including uppercase and lowercase letters.
@@ -341,10 +504,17 @@ export default function RegisterPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
                     autoComplete="new-password"
-                    required
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`${inputClass} pr-12`}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      updateError("confirmPassword", e.target.value);
+                    }}
+                    aria-invalid={!!errors.confirmPassword}
+                    className={`${inputClass} pr-12 ${
+                      errors.confirmPassword
+                        ? "border-red-500"
+                        : "border-[#E9E5DC]"
+                    }`}
                   />
 
                   <button
@@ -362,6 +532,12 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
+
+                {errors.confirmPassword && (
+                  <p className="mt-1.5 text-xs font-medium text-red-600">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
 
               {/* Create Account */}
@@ -394,7 +570,6 @@ export default function RegisterPage() {
 
             {/* Google and GitHub Buttons */}
             <div className="grid grid-cols-2 gap-3">
-              {/* Google */}
               <button
                 type="button"
                 onClick={() =>
@@ -402,11 +577,7 @@ export default function RegisterPage() {
                 }
                 className="flex items-center justify-center gap-2.5 rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-3 py-3.5 text-sm font-semibold text-[#344239] transition duration-300 hover:-translate-y-0.5 hover:border-[#D6A47E] hover:bg-[#FFF7ED] hover:shadow-md"
               >
-                <svg
-                  viewBox="0 0 48 48"
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                >
+                <svg viewBox="0 0 48 48" className="h-5 w-5">
                   <path
                     fill="#EA4335"
                     d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"
@@ -428,7 +599,6 @@ export default function RegisterPage() {
                 Google
               </button>
 
-              {/* GitHub */}
               <button
                 type="button"
                 onClick={() =>
@@ -440,7 +610,6 @@ export default function RegisterPage() {
                   viewBox="0 0 24 24"
                   className="h-5 w-5"
                   fill="currentColor"
-                  aria-hidden="true"
                 >
                   <path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.07 3.2 1.59.1-.73.39-1.22.7-1.5-2.5-.29-5.13-1.25-5.13-5.56 0-1.23.44-2.24 1.16-3.03-.12-.29-.5-1.44.11-2.99 0 0 .95-.3 3.08 1.16a10.7 10.7 0 0 1 5.61 0c2.14-1.46 3.08-1.16 3.08-1.16.61 1.55.23 2.7.11 2.99.72.79 1.16 1.8 1.16 3.03 0 4.32-2.64 5.27-5.15 5.55.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.78.54A11.2 11.2 0 0 0 12 .8Z" />
                 </svg>

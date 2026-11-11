@@ -40,6 +40,42 @@ interface Event {
   eventDate: string;
 }
 
+type SocialPlatform = "facebook" | "instagram" | "linkedin" | "x";
+
+function SocialIcon({ platform }: { platform: SocialPlatform }) {
+  if (platform === "facebook") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+        <path d="M13.5 21v-8h2.7l.4-3h-3.1V8.1c0-.9.3-1.5 1.6-1.5h1.7V3.9c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3V10H7.3v3h2.8v8h3.4z" />
+      </svg>
+    );
+  }
+
+  if (platform === "instagram") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="18" cy="6" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+
+  if (platform === "linkedin") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+        <path d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM3.5 9h3v12h-3V9Zm5 0h2.9v1.6h.1c.4-.8 1.4-1.9 3.2-1.9 3.4 0 4 2.2 4 5V21h-3v-6.5c0-1.6 0-3.6-2.2-3.6s-2.5 1.7-2.5 3.5V21h-3V9Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+      <path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-7.3L5.6 22H2.4l7.3-8.4L1.8 2h6.5l4.4 6.8L18.9 2Zm-1.1 18h1.7L7.3 3.9H5.5L17.8 20Z" />
+    </svg>
+  );
+}
+
 const categories = [
   { name: "All", icon: Globe2 },
   { name: "Community Service", icon: Users },
@@ -156,22 +192,23 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
 
   const user = session?.user;
   const isLoggedIn = Boolean(user);
 
-  // Fetch recent upcoming events
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
+
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/api/events/recent`,
-        {
-          cache: "no-store",
-        }
-      );
+      const response = await fetch(`${API_URL}/api/events/recent`, {
+        cache: "no-store",
+      });
 
       if (!response.ok) {
         throw new Error("Could not load events from the server.");
@@ -186,11 +223,7 @@ export default function HomePage() {
       const upcomingEvents = result.data
         .filter((event: Event) => {
           const eventTime = new Date(event.eventDate).getTime();
-
-          return (
-            Number.isFinite(eventTime) &&
-            eventTime > Date.now()
-          );
+          return Number.isFinite(eventTime) && eventTime > Date.now();
         })
         .slice(0, 6);
 
@@ -212,7 +245,6 @@ export default function HomePage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Fetch joined events using Better Auth JWT
   useEffect(() => {
     let cancelled = false;
 
@@ -226,21 +258,16 @@ export default function HomePage() {
         const { data, error } = await authClient.token();
 
         if (error || !data?.token) {
-          if (!cancelled) {
-            setJoinedIds([]);
-          }
+          if (!cancelled) setJoinedIds([]);
           return;
         }
 
-        const response = await fetch(
-          `${API_URL}/api/events/joined`,
-          {
-            headers: {
-              Authorization: `Bearer ${data.token}`,
-            },
-            cache: "no-store",
-          }
-        );
+        const response = await fetch(`${API_URL}/api/events/joined`, {
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error("Could not load joined events.");
@@ -248,15 +275,9 @@ export default function HomePage() {
 
         const result = await response.json();
 
-        if (
-          !cancelled &&
-          result.success &&
-          Array.isArray(result.data)
-        ) {
+        if (!cancelled && result.success && Array.isArray(result.data)) {
           setJoinedIds(
-            result.data.map((event: Event) =>
-              String(event._id)
-            )
+            result.data.map((event: Event) => String(event._id))
           );
         }
       } catch (error) {
@@ -271,7 +292,6 @@ export default function HomePage() {
     };
   }, [isLoggedIn]);
 
-  // Join event using Better Auth JWT
   const handleJoin = async (eventId: string) => {
     if (!isLoggedIn) {
       toast.error("Please login to join this event.");
@@ -308,20 +328,14 @@ export default function HomePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.message || "Could not join this event."
-        );
+        throw new Error(result.message || "Could not join this event.");
       }
 
       setJoinedIds((previous) =>
-        previous.includes(eventId)
-          ? previous
-          : [...previous, eventId]
+        previous.includes(eventId) ? previous : [...previous, eventId]
       );
 
-      toast.success(
-        result.message || "Successfully joined!"
-      );
+      toast.success(result.message || "Successfully joined!");
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -333,7 +347,6 @@ export default function HomePage() {
     }
   };
 
-  // Search and category filtering
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       const query = search.toLowerCase().trim();
@@ -345,15 +358,14 @@ export default function HomePage() {
 
       const matchesCategory =
         activeCategory === "All" ||
-        event.type.toLowerCase() ===
-          activeCategory.toLowerCase();
+        event.type.toLowerCase() === activeCategory.toLowerCase();
 
       return matchesSearch && matchesCategory;
     });
   }, [events, search, activeCategory]);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#F4F0E8] text-[#172A3A]">
+    <main className="kindora-home min-h-screen overflow-hidden bg-[#F4F0E8] text-[#172A3A] transition-colors duration-300">
 
       {/* HERO */}
       <section className="mx-auto max-w-[1400px] px-5 pb-20 pt-12 md:px-10 md:pt-20">
@@ -430,7 +442,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* HERO IMAGE COLLAGE */}
           <div className="relative min-h-[470px] sm:min-h-[580px]">
             <div className="absolute right-0 top-0 h-[75%] w-[78%] overflow-hidden rounded-[2rem]">
               <img
@@ -452,14 +463,9 @@ export default function HomePage() {
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#172A3A] text-[#D5F36A]">
                 <Heart size={21} />
               </div>
-
               <div>
-                <p className="text-sm font-black">
-                  Make it matter.
-                </p>
-                <p className="text-xs text-[#46532A]">
-                  Start with one action
-                </p>
+                <p className="text-sm font-black">Make it matter.</p>
+                <p className="text-xs text-[#46532A]">Start with one action</p>
               </div>
             </div>
 
@@ -469,7 +475,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* IMPACT STEPS */}
         <div className="mt-20 grid grid-cols-2 border-y border-[#172A3A]/15 py-7 md:grid-cols-4">
           {[
             ["01", "Discover opportunities"],
@@ -481,12 +486,8 @@ export default function HomePage() {
               key={number}
               className="flex items-center gap-3 px-2 py-3 md:border-r md:border-[#172A3A]/15 md:px-6 last:border-r-0"
             >
-              <span className="text-sm font-black text-[#8AA83B]">
-                {number}
-              </span>
-              <span className="text-xs font-bold sm:text-sm">
-                {text}
-              </span>
+              <span className="text-sm font-black text-[#8AA83B]">{number}</span>
+              <span className="text-xs font-bold sm:text-sm">{text}</span>
             </div>
           ))}
         </div>
@@ -503,19 +504,16 @@ export default function HomePage() {
               <span className="text-xs font-bold uppercase tracking-[0.22em] text-[#D5F36A]">
                 Why Kindora
               </span>
-
               <h2 className="mt-5 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
                 Change is a
                 <br />
                 team sport.
               </h2>
-
               <p className="mt-6 max-w-sm leading-8 text-white/60">
                 We make it easier for people to find meaningful
                 ways to help. Because stronger communities are
                 built by people who care.
               </p>
-
               <Link
                 href="/events"
                 className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#D5F36A] px-6 py-3.5 text-sm font-bold text-[#172A3A] transition hover:bg-white"
@@ -549,18 +547,13 @@ export default function HomePage() {
                 },
               ].map((item) => {
                 const Icon = item.icon;
-
                 return (
                   <div
                     key={item.title}
                     className="rounded-2xl border border-white/15 bg-white/[0.04] p-7 transition hover:border-[#D5F36A]/50 hover:bg-white/[0.08]"
                   >
                     <Icon size={27} className="text-[#D5F36A]" />
-
-                    <h3 className="mt-6 text-xl font-bold">
-                      {item.title}
-                    </h3>
-
+                    <h3 className="mt-6 text-xl font-bold">{item.title}</h3>
                     <p className="mt-3 text-sm leading-7 text-white/55">
                       {item.text}
                     </p>
@@ -580,12 +573,10 @@ export default function HomePage() {
               <span className="text-xs font-black uppercase tracking-[0.2em] text-[#829C37]">
                 Find your cause
               </span>
-
               <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
                 What moves you?
               </h2>
             </div>
-
             <p className="max-w-sm text-sm leading-7 text-[#73808A]">
               From environmental action to education,
               there is a cause for everyone.
@@ -595,7 +586,6 @@ export default function HomePage() {
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {initiatives.map((item) => {
               const Icon = item.icon;
-
               return (
                 <Link
                   href="/events"
@@ -606,21 +596,15 @@ export default function HomePage() {
                     <span className="text-xs font-black text-[#8AA83B]">
                       {item.number}
                     </span>
-
                     <Icon
                       size={25}
                       className="text-[#172A3A] transition group-hover:text-[#829C37]"
                     />
                   </div>
-
-                  <h3 className="mt-10 text-xl font-black">
-                    {item.title}
-                  </h3>
-
+                  <h3 className="mt-10 text-xl font-black">{item.title}</h3>
                   <p className="mt-3 min-h-[72px] text-sm leading-6 text-[#73808A]">
                     {item.description}
                   </p>
-
                   <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-wider">
                     Explore <ArrowUpRight size={15} />
                   </div>
@@ -642,18 +626,15 @@ export default function HomePage() {
               <span className="text-xs font-black uppercase tracking-[0.2em] text-[#829C37]">
                 Make a difference
               </span>
-
               <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
                 Upcoming events
                 <span className="text-[#829C37]">.</span>
               </h2>
-
               <p className="mt-4 max-w-xl text-sm leading-7 text-[#73808A]">
                 Find an opportunity, show up, and be part
                 of something bigger.
               </p>
             </div>
-
             <Link
               href="/events"
               className="inline-flex items-center gap-2 self-start rounded-full border border-[#172A3A]/25 px-6 py-3 text-sm font-bold transition hover:bg-[#172A3A] hover:text-white md:self-auto"
@@ -663,36 +644,28 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* SEARCH AND FILTER */}
           <div className="mt-10 flex flex-col gap-5 border-y border-[#172A3A]/15 py-5">
             <div className="relative max-w-md">
               <Search
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#73808A]"
               />
-
               <input
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search events, places..."
                 aria-label="Search events"
                 className="w-full rounded-full border border-[#172A3A]/15 bg-[#F4F0E8] py-3.5 pl-11 pr-5 text-sm outline-none transition focus:border-[#829C37]"
               />
             </div>
-
             <div className="flex gap-2 overflow-x-auto pb-1">
               {categories.map((category) => {
                 const Icon = category.icon;
-
                 return (
                   <button
                     key={category.name}
                     type="button"
-                    onClick={() =>
-                      setActiveCategory(category.name)
-                    }
+                    onClick={() => setActiveCategory(category.name)}
                     className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition ${
                       activeCategory === category.name
                         ? "bg-[#172A3A] text-white"
@@ -707,16 +680,11 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* EVENTS CONTENT */}
           {loading ? (
             <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="animate-pulse bg-[#F4F0E8]"
-                >
+                <div key={index} className="animate-pulse bg-[#F4F0E8]">
                   <div className="h-56 bg-[#D9D6CB]" />
-
                   <div className="space-y-4 p-6">
                     <div className="h-4 w-1/3 bg-[#D9D6CB]" />
                     <div className="h-6 w-3/4 bg-[#D9D6CB]" />
@@ -727,14 +695,8 @@ export default function HomePage() {
             </div>
           ) : error ? (
             <div className="mt-10 bg-[#F4F0E8] px-6 py-16 text-center">
-              <h3 className="text-xl font-black">
-                Events could not be loaded
-              </h3>
-
-              <p className="mt-3 text-sm text-[#73808A]">
-                {error}
-              </p>
-
+              <h3 className="text-xl font-black">Events could not be loaded</h3>
+              <p className="mt-3 text-sm text-[#73808A]">{error}</p>
               <button
                 type="button"
                 onClick={fetchEvents}
@@ -749,15 +711,10 @@ export default function HomePage() {
                 size={32}
                 className="mx-auto text-[#829C37]"
               />
-
-              <h3 className="mt-5 text-xl font-black">
-                No events found
-              </h3>
-
+              <h3 className="mt-5 text-xl font-black">No events found</h3>
               <p className="mt-3 text-sm text-[#73808A]">
                 Try a different search or category.
               </p>
-
               <button
                 type="button"
                 onClick={() => {
@@ -786,11 +743,9 @@ export default function HomePage() {
                         alt={event.title}
                         className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                       />
-
                       <span className="absolute left-4 top-4 bg-[#D5F36A] px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#172A3A]">
                         {event.type}
                       </span>
-
                       <span className="absolute bottom-4 right-4 bg-[#172A3A] px-3 py-2 text-xs font-bold text-white">
                         {String(index + 1).padStart(2, "0")} / 06
                       </span>
@@ -802,31 +757,21 @@ export default function HomePage() {
                           <CalendarDays size={14} />
                           {formatDate(event.eventDate)}
                         </span>
-
                         <span className="flex items-center gap-1.5">
                           <Clock3 size={14} />
                           {formatTime(event.eventDate)}
                         </span>
                       </div>
-
                       <h3 className="mt-5 line-clamp-2 min-h-[3.5rem] text-xl font-black leading-snug">
                         {event.title}
                       </h3>
-
                       <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-[#73808A]">
                         {event.description}
                       </p>
-
                       <div className="mt-5 flex items-center gap-2 border-t border-[#172A3A]/10 pt-4 text-xs font-semibold text-[#73808A]">
-                        <MapPin
-                          size={15}
-                          className="text-[#829C37]"
-                        />
-                        <span className="line-clamp-1">
-                          {event.location}
-                        </span>
+                        <MapPin size={15} className="text-[#829C37]" />
+                        <span className="line-clamp-1">{event.location}</span>
                       </div>
-
                       <div className="mt-6 flex gap-3">
                         <Link
                           href={`/events/${event._id}`}
@@ -835,7 +780,6 @@ export default function HomePage() {
                           View Details
                           <ArrowUpRight size={15} />
                         </Link>
-
                         <button
                           type="button"
                           disabled={joined || joining}
@@ -870,37 +814,29 @@ export default function HomePage() {
       </section>
 
       {/* GALLERY */}
-      <section
-        id="gallery"
-        className="px-5 py-20 md:px-10 lg:py-28"
-      >
+      <section id="gallery" className="px-5 py-20 md:px-10 lg:py-28">
         <div className="mx-auto max-w-[1400px]">
           <div className="mb-12 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
               <span className="text-xs font-black uppercase tracking-[0.2em] text-[#829C37]">
                 Real people. Real stories.
               </span>
-
               <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
                 Moments of impact
                 <span className="text-[#829C37]">.</span>
               </h2>
             </div>
-
             <p className="max-w-sm text-sm leading-7 text-[#73808A]">
               Every small effort has a story. Here are the
               moments that inspire us to keep going.
             </p>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {gallery.map((item, index) => (
               <div
                 key={item.title}
                 className={`group relative overflow-hidden bg-[#172A3A] ${
-                  index % 2 === 0
-                    ? "h-[360px]"
-                    : "h-[310px] lg:mt-12"
+                  index % 2 === 0 ? "h-[360px]" : "h-[310px] lg:mt-12"
                 }`}
               >
                 <img
@@ -908,17 +844,12 @@ export default function HomePage() {
                   alt={item.title}
                   className="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-110 group-hover:opacity-100"
                 />
-
                 <div className="absolute inset-0 bg-gradient-to-t from-[#101D29]/90 via-transparent to-transparent" />
-
                 <div className="absolute bottom-0 p-6 text-white">
                   <span className="text-[10px] font-black tracking-[0.2em] text-[#D5F36A]">
                     {item.category}
                   </span>
-
-                  <h3 className="mt-3 text-xl font-black">
-                    {item.title}
-                  </h3>
+                  <h3 className="mt-3 text-xl font-black">{item.title}</h3>
                 </div>
               </div>
             ))}
@@ -933,26 +864,22 @@ export default function HomePage() {
             <span className="text-xs font-black uppercase tracking-[0.2em] text-[#52602B]">
               Your next step starts here
             </span>
-
             <h2 className="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-tight text-[#172A3A] sm:text-6xl">
-              Don't just care.
+              Don&apos;t just care.
               <br />
               Make it count.
             </h2>
-
             <p className="mt-6 max-w-xl leading-7 text-[#52602B]">
               Find an event, bring your ideas, and help make
               your community stronger. Your next meaningful
               moment starts today.
             </p>
           </div>
-
           <Link
             href={isLoggedIn ? "/create-event" : "/register"}
             className="group flex shrink-0 items-center gap-4 rounded-full bg-[#172A3A] px-8 py-5 text-sm font-black text-white transition hover:bg-[#29465C]"
           >
             {isLoggedIn ? "Create an Event" : "Get Started"}
-
             <ArrowUpRight
               size={20}
               className="transition group-hover:translate-x-1 group-hover:-translate-y-1"
@@ -961,7 +888,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* NEWSLETTER - DESIGN ONLY */}
+      {/* NEWSLETTER */}
       <section
         id="newsletter"
         className="bg-[#172A3A] px-5 py-20 text-white md:px-10 lg:py-24"
@@ -972,39 +899,31 @@ export default function HomePage() {
               <span className="h-2 w-2 rounded-full bg-[#D5F36A]" />
               The Kindora Newsletter
             </span>
-
             <h2 className="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
               Stay in the loop.
               <br />
-              <span className="text-[#D5F36A]">
-                Stay inspired.
-              </span>
+              <span className="text-[#D5F36A]">Stay inspired.</span>
             </h2>
-
             <p className="mt-5 max-w-xl text-sm leading-7 text-white/60 sm:text-base">
               Get the latest community events, inspiring
               stories, and opportunities to make a difference
               — delivered straight to your inbox.
             </p>
           </div>
-
           <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 sm:p-8">
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D5F36A] text-[#172A3A]">
                 <Mail size={22} />
               </div>
-
               <div>
                 <h3 className="text-lg font-black">
                   A little good in your inbox.
                 </h3>
-
                 <p className="mt-1 text-xs text-white/50">
                   Community updates, delivered with purpose.
                 </p>
               </div>
             </div>
-
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="email"
@@ -1012,7 +931,6 @@ export default function HomePage() {
                 aria-label="Email address"
                 className="min-w-0 flex-1 rounded-full border border-white/15 bg-white/10 px-5 py-4 text-sm text-white outline-none placeholder:text-white/40 focus:border-[#D5F36A]"
               />
-
               <button
                 type="button"
                 className="flex items-center justify-center gap-2 rounded-full bg-[#D5F36A] px-7 py-4 text-sm font-black text-[#172A3A] transition hover:bg-white"
@@ -1021,7 +939,6 @@ export default function HomePage() {
                 <ArrowRight size={17} />
               </button>
             </div>
-
             <p className="mt-4 text-[11px] leading-5 text-white/40">
               Stay connected with the causes and communities
               that matter to you.
@@ -1038,7 +955,6 @@ export default function HomePage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D5F36A] text-[#172A3A]">
                 <HeartHandshake size={22} />
               </div>
-
               <span className="text-2xl font-black">
                 kindora<span className="text-[#D5F36A]">.</span>
               </span>
@@ -1048,32 +964,64 @@ export default function HomePage() {
               Bringing people together through meaningful
               community events and positive social action.
             </p>
+
+            <h4 className="mb-4 mt-7 text-xs font-black uppercase tracking-[0.18em] text-[#D5F36A]">
+              Follow Our Community
+            </h4>
+
+            <div className="flex items-center gap-3">
+              {[
+                {
+                  name: "Facebook",
+                  platform: "facebook" as const,
+                  href: "https://www.facebook.com/",
+                },
+                {
+                  name: "Instagram",
+                  platform: "instagram" as const,
+                  href: "https://www.instagram.com/",
+                },
+                {
+                  name: "LinkedIn",
+                  platform: "linkedin" as const,
+                  href: "https://www.linkedin.com/",
+                },
+                {
+                  name: "X",
+                  platform: "x" as const,
+                  href: "https://x.com/",
+                },
+              ].map((social) => (
+                <a
+                  key={social.name}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Visit ${social.name}`}
+                  title={social.name}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/65 transition duration-300 hover:-translate-y-1 hover:border-[#D5F36A] hover:bg-[#D5F36A] hover:text-[#172A3A]"
+                >
+                  <SocialIcon platform={social.platform} />
+                </a>
+              ))}
+            </div>
           </div>
 
           <div>
             <h3 className="mb-6 text-sm font-black text-[#D5F36A]">
               Explore
             </h3>
-
             <div className="flex flex-col gap-4 text-sm text-white/55">
-              <Link href="/events" className="hover:text-white">
+              <Link href="/events" className="transition hover:text-[#D5F36A]">
                 All Events
               </Link>
-
               {isLoggedIn && (
-                <Link
-                  href="/create-event"
-                  className="hover:text-white"
-                >
+                <Link href="/create-event" className="transition hover:text-[#D5F36A]">
                   Create Event
                 </Link>
               )}
-
               {isLoggedIn && (
-                <Link
-                  href="/joined-events"
-                  className="hover:text-white"
-                >
+                <Link href="/joined-events" className="transition hover:text-[#D5F36A]">
                   My Events
                 </Link>
               )}
@@ -1084,17 +1032,14 @@ export default function HomePage() {
             <h3 className="mb-6 text-sm font-black text-[#D5F36A]">
               Community
             </h3>
-
             <div className="flex flex-col gap-4 text-sm text-white/55">
-              <a href="#about" className="hover:text-white">
+              <a href="#about" className="transition hover:text-[#D5F36A]">
                 About Us
               </a>
-
-              <a href="#gallery" className="hover:text-white">
+              <a href="#gallery" className="transition hover:text-[#D5F36A]">
                 Our Stories
               </a>
-
-              <a href="#newsletter" className="hover:text-white">
+              <a href="#newsletter" className="transition hover:text-[#D5F36A]">
                 Newsletter
               </a>
             </div>
@@ -1104,28 +1049,22 @@ export default function HomePage() {
             <h3 className="mb-6 text-sm font-black text-[#D5F36A]">
               Account
             </h3>
-
             <div className="flex flex-col gap-4 text-sm text-white/55">
               {!isLoggedIn ? (
                 <>
-                  <Link href="/login" className="hover:text-white">
+                  <Link href="/login" className="transition hover:text-[#D5F36A]">
                     Login
                   </Link>
-
-                  <Link href="/register" className="hover:text-white">
+                  <Link href="/register" className="transition hover:text-[#D5F36A]">
                     Register
                   </Link>
                 </>
               ) : (
                 <>
-                  <Link href="/profile" className="hover:text-white">
+                  <Link href="/profile" className="transition hover:text-[#D5F36A]">
                     My Profile
                   </Link>
-
-                  <Link
-                    href="/manage-events"
-                    className="hover:text-white"
-                  >
+                  <Link href="/manage-events" className="transition hover:text-[#D5F36A]">
                     Manage Events
                   </Link>
                 </>
@@ -1135,8 +1074,9 @@ export default function HomePage() {
         </div>
 
         <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-4 pt-7 text-xs text-white/40 sm:flex-row">
-          <p>© 2026 Kindora. All rights reserved.</p>
-
+          <p>
+            © {currentYear ?? "2026"} Kindora. All rights reserved.
+          </p>
           <p className="flex items-center gap-2">
             Made for people who care
             <Heart size={13} className="text-[#D5F36A]" />

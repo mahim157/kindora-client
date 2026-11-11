@@ -15,6 +15,11 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
+interface FormErrors {
+  email?: string;
+  password?: string;
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -23,12 +28,82 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitted, setSubmitted] = useState(false);
 
+  // Validate individual fields
+  const validateEmail = (value: string) => {
+    const trimmedEmail = value.trim();
+
+    if (!trimmedEmail) {
+      return "Email address is required.";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(trimmedEmail)) {
+      return "Please enter a valid email address.";
+    }
+
+    return "";
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      return "Password is required.";
+    }
+
+    if (value.length < 6) {
+      return "Password must be at least 6 characters.";
+    }
+
+    return "";
+  };
+
+  // Validate complete form
+  const validateForm = () => {
+    const newErrors: FormErrors = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+
+    setErrors(newErrors);
+
+    return !newErrors.email && !newErrors.password;
+  };
+
+  // Handle email change
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+
+    if (submitted) {
+      setErrors((previous) => ({
+        ...previous,
+        email: validateEmail(value),
+      }));
+    }
+  };
+
+  // Handle password change
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+
+    if (submitted) {
+      setErrors((previous) => ({
+        ...previous,
+        password: validatePassword(value),
+      }));
+    }
+  };
+
+  // Login
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!email.trim() || !password) {
-      toast.error("Please enter your email and password.");
+    setSubmitted(true);
+
+    if (!validateForm()) {
+      toast.error("Please fix the errors before signing in.");
       return;
     }
 
@@ -48,9 +123,11 @@ export default function LoginPage() {
       }
 
       toast.success("Welcome back to Kindora!");
+
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error("Login error:", error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -58,7 +135,7 @@ export default function LoginPage() {
   };
 
   const inputClass =
-    "w-full rounded-xl border border-[#E5E9E3] bg-[#FFFDF9] py-3.5 pl-11 pr-4 text-sm text-[#26382D] outline-none transition placeholder:text-[#A0A99F] focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10";
+    "w-full rounded-xl border bg-[#FFFDF9] py-3.5 pl-11 pr-4 text-sm text-[#26382D] outline-none transition placeholder:text-[#A0A99F] focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/10";
 
   return (
     <main className="min-h-screen bg-[#FFF9F1] lg:flex">
@@ -71,6 +148,7 @@ export default function LoginPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E99A62] text-[#174B35]">
             <Heart size={24} fill="currentColor" />
           </div>
+
           <span className="text-2xl font-bold tracking-tight">
             Kindora<span className="text-[#E99A62]">.</span>
           </span>
@@ -103,8 +181,11 @@ export default function LoginPage() {
                 </div>
               ))}
             </div>
+
             <div>
-              <p className="text-sm font-semibold">Be part of something good</p>
+              <p className="text-sm font-semibold">
+                Be part of something good
+              </p>
               <p className="text-xs text-white/60">
                 Connect. Participate. Make an impact.
               </p>
@@ -128,6 +209,7 @@ export default function LoginPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#174B35] text-[#E99A62]">
               <Heart size={22} fill="currentColor" />
             </div>
+
             <span className="text-2xl font-bold text-[#174B35]">
               Kindora<span className="text-[#E99A62]">.</span>
             </span>
@@ -149,7 +231,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} noValidate className="space-y-5">
               {/* Email */}
               <div>
                 <label
@@ -164,17 +246,38 @@ export default function LoginPage() {
                     size={18}
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9AA59B]"
                   />
+
                   <input
                     id="email"
                     type="email"
                     autoComplete="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    required
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    onBlur={() => {
+                      if (submitted) {
+                        setErrors((previous) => ({
+                          ...previous,
+                          email: validateEmail(email),
+                        }));
+                      }
+                    }}
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? "email-error" : undefined}
+                    className={`${inputClass} ${
+                      errors.email ? "border-red-500" : "border-[#E5E9E3]"
+                    }`}
                   />
                 </div>
+
+                {errors.email && (
+                  <p
+                    id="email-error"
+                    className="mt-1.5 text-xs font-medium text-red-600"
+                  >
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -210,20 +313,40 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`${inputClass} pr-12`}
-                    required
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    aria-invalid={!!errors.password}
+                    aria-describedby={
+                      errors.password ? "password-error" : undefined
+                    }
+                    className={`${inputClass} pr-12 ${
+                      errors.password ? "border-red-500" : "border-[#E5E9E3]"
+                    }`}
                   />
 
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9AA59B] hover:text-[#174B35]"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
                   </button>
                 </div>
+
+                {errors.password && (
+                  <p
+                    id="password-error"
+                    className="mt-1.5 text-xs font-medium text-red-600"
+                  >
+                    {errors.password}
+                  </p>
+                )}
               </div>
 
               {/* Remember Me */}
@@ -234,6 +357,7 @@ export default function LoginPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 accent-[#174B35]"
                 />
+
                 <span className="text-sm text-[#657268]">
                   Remember me
                 </span>
@@ -253,9 +377,11 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="my-6 flex items-center gap-4">
               <div className="h-px flex-1 bg-[#ECEFEA]" />
+
               <span className="text-xs font-medium text-[#A0A99F]">
                 OR CONTINUE WITH
               </span>
+
               <div className="h-px flex-1 bg-[#ECEFEA]" />
             </div>
 
@@ -323,4 +449,3 @@ export default function LoginPage() {
     </main>
   );
 }
-

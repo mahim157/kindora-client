@@ -53,7 +53,15 @@ const categories = [
 const fallbackImage =
   "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?w=900&q=85";
 
+// Date validation
+function isValidDate(date: string) {
+  return !Number.isNaN(new Date(date).getTime());
+}
+
+// Safe date formatting
 function formatDate(date: string) {
+  if (!isValidDate(date)) return "Date unavailable";
+
   return new Date(date).toLocaleDateString("en-BD", {
     day: "numeric",
     month: "long",
@@ -63,6 +71,8 @@ function formatDate(date: string) {
 }
 
 function formatDay(date: string) {
+  if (!isValidDate(date)) return "--";
+
   return new Date(date).toLocaleDateString("en-BD", {
     day: "2-digit",
     timeZone: "Asia/Dhaka",
@@ -70,14 +80,12 @@ function formatDay(date: string) {
 }
 
 function formatMonth(date: string) {
+  if (!isValidDate(date)) return "---";
+
   return new Date(date).toLocaleDateString("en-BD", {
     month: "short",
     timeZone: "Asia/Dhaka",
   });
-}
-
-function isValidDate(date: string) {
-  return !Number.isNaN(new Date(date).getTime());
 }
 
 export default function UpcomingEventsPage() {
@@ -88,6 +96,7 @@ export default function UpcomingEventsPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [sortOrder, setSortOrder] = useState("earliest");
 
+  // Fetch ALL upcoming events
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -107,14 +116,19 @@ export default function UpcomingEventsPage() {
 
       const currentTime = Date.now();
 
+      // IMPORTANT:
+      // No slice(0, 6) here.
+      // All upcoming events will be displayed.
       const upcomingEvents: Event[] = (result.data || [])
-        .filter(
-          (event: Event) =>
+        .filter((event: Event) => {
+          return (
             event._id &&
             event.title &&
+            event.eventDate &&
             isValidDate(event.eventDate) &&
             new Date(event.eventDate).getTime() > currentTime
-        )
+          );
+        })
         .sort(
           (a: Event, b: Event) =>
             new Date(a.eventDate).getTime() -
@@ -123,6 +137,8 @@ export default function UpcomingEventsPage() {
 
       setEvents(upcomingEvents);
     } catch (err) {
+      console.error("Fetch upcoming events:", err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -137,30 +153,44 @@ export default function UpcomingEventsPage() {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Search, category filter and sorting
   const filteredEvents = useMemo(() => {
     let filtered = [...events];
 
+    // Category filter
     if (activeCategory !== "All") {
       filtered = filtered.filter(
         (event) =>
-          event.type.toLowerCase() === activeCategory.toLowerCase()
+          event.type?.toLowerCase() === activeCategory.toLowerCase()
       );
     }
 
+    // Search filter
     if (search.trim()) {
       const query = search.toLowerCase().trim();
 
       filtered = filtered.filter(
         (event) =>
-          event.title.toLowerCase().includes(query) ||
-          event.location.toLowerCase().includes(query) ||
-          event.type.toLowerCase().includes(query) ||
-          event.description.toLowerCase().includes(query)
+          event.title?.toLowerCase().includes(query) ||
+          event.location?.toLowerCase().includes(query) ||
+          event.type?.toLowerCase().includes(query) ||
+          event.description?.toLowerCase().includes(query)
       );
     }
 
+    // Sorting
     if (sortOrder === "latest") {
-      filtered.reverse();
+      filtered.sort(
+        (a, b) =>
+          new Date(b.eventDate).getTime() -
+          new Date(a.eventDate).getTime()
+      );
+    } else {
+      filtered.sort(
+        (a, b) =>
+          new Date(a.eventDate).getTime() -
+          new Date(b.eventDate).getTime()
+      );
     }
 
     return filtered;
@@ -168,9 +198,11 @@ export default function UpcomingEventsPage() {
 
   return (
     <main className="min-h-screen bg-[#F4F0E8] text-[#172A3A]">
-      {/* Hero Section */}
+
+      {/* HERO SECTION */}
       <section className="relative overflow-hidden bg-[#172A3A] px-5 pb-20 pt-16 text-[#F4F0E8] sm:px-8 sm:pt-20 lg:px-12">
         <div className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full bg-[#D5F36A]/10 blur-3xl" />
+
         <div className="pointer-events-none absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-[#D5F36A]/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl">
@@ -217,6 +249,7 @@ export default function UpcomingEventsPage() {
               </div>
             </div>
 
+            {/* EVENT COUNT */}
             <div className="hidden rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm lg:block">
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D5F36A] text-[#172A3A]">
                 <Users size={24} />
@@ -238,12 +271,13 @@ export default function UpcomingEventsPage() {
         </div>
       </section>
 
-      {/* Events Section */}
+      {/* EVENTS SECTION */}
       <section
         id="all-events"
         className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:px-12 lg:py-20"
       >
-        {/* Section Heading */}
+
+        {/* SECTION HEADING */}
         <div className="mb-9 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-[#738344]">
@@ -251,7 +285,8 @@ export default function UpcomingEventsPage() {
             </p>
 
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
-              Upcoming Events<span className="text-[#A5BD43]">.</span>
+              Upcoming Events
+              <span className="text-[#A5BD43]">.</span>
             </h2>
 
             <p className="mt-3 max-w-xl text-sm leading-7 text-[#172A3A]/60 sm:text-base">
@@ -265,7 +300,7 @@ export default function UpcomingEventsPage() {
           </div>
         </div>
 
-        {/* Search and Sorting */}
+        {/* SEARCH AND SORTING */}
         <div className="mb-7 grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="relative">
             <Search
@@ -283,6 +318,7 @@ export default function UpcomingEventsPage() {
 
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
                 aria-label="Clear search"
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[#172A3A]/40 hover:text-[#172A3A]"
@@ -314,7 +350,7 @@ export default function UpcomingEventsPage() {
           </div>
         </div>
 
-        {/* Category Filters */}
+        {/* CATEGORY FILTERS */}
         <div className="mb-10">
           <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#172A3A]/45">
             <Filter size={14} />
@@ -328,6 +364,7 @@ export default function UpcomingEventsPage() {
 
               return (
                 <button
+                  type="button"
                   key={category.name}
                   onClick={() => setActiveCategory(category.name)}
                   className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
@@ -344,7 +381,7 @@ export default function UpcomingEventsPage() {
           </div>
         </div>
 
-        {/* Loading */}
+        {/* LOADING */}
         {loading && (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-3xl border border-[#172A3A]/10 bg-white">
             <Loader2 className="h-10 w-10 animate-spin text-[#738344]" />
@@ -355,7 +392,7 @@ export default function UpcomingEventsPage() {
           </div>
         )}
 
-        {/* Error */}
+        {/* ERROR */}
         {!loading && error && (
           <div className="rounded-3xl border border-red-200 bg-white px-6 py-16 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
@@ -371,6 +408,7 @@ export default function UpcomingEventsPage() {
             </p>
 
             <button
+              type="button"
               onClick={fetchEvents}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#172A3A] px-6 py-3 font-semibold text-white transition hover:bg-[#263e50]"
             >
@@ -380,7 +418,7 @@ export default function UpcomingEventsPage() {
           </div>
         )}
 
-        {/* Event Grid */}
+        {/* EVENT GRID */}
         {!loading && !error && filteredEvents.length > 0 && (
           <>
             <div className="mb-6 flex items-center justify-between">
@@ -394,6 +432,7 @@ export default function UpcomingEventsPage() {
 
               {(search || activeCategory !== "All") && (
                 <button
+                  type="button"
                   onClick={() => {
                     setSearch("");
                     setActiveCategory("All");
@@ -411,7 +450,7 @@ export default function UpcomingEventsPage() {
                   key={event._id}
                   className="group overflow-hidden rounded-3xl border border-[#172A3A]/8 bg-white transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(23,42,58,0.12)]"
                 >
-                  {/* Thumbnail */}
+                  {/* THUMBNAIL */}
                   <div className="relative h-56 overflow-hidden bg-[#E6E9DD]">
                     <img
                       src={event.image || fallbackImage}
@@ -438,7 +477,7 @@ export default function UpcomingEventsPage() {
                     </div>
                   </div>
 
-                  {/* Event Information */}
+                  {/* EVENT INFORMATION */}
                   <div className="p-6">
                     <div className="mb-4 flex items-center gap-2 text-xs font-medium text-[#172A3A]/50">
                       <CalendarDays size={15} className="text-[#829746]" />
@@ -480,7 +519,7 @@ export default function UpcomingEventsPage() {
           </>
         )}
 
-        {/* Empty State */}
+        {/* EMPTY STATE */}
         {!loading && !error && filteredEvents.length === 0 && (
           <div className="rounded-3xl border border-[#172A3A]/10 bg-white px-6 py-20 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F4F0E8] text-[#738344]">
@@ -499,6 +538,7 @@ export default function UpcomingEventsPage() {
 
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setSearch("");
                   setActiveCategory("All");
@@ -519,7 +559,7 @@ export default function UpcomingEventsPage() {
         )}
       </section>
 
-      {/* Bottom CTA */}
+      {/* BOTTOM CTA */}
       <section className="px-5 pb-16 sm:px-8 lg:px-12">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#D5F36A] px-7 py-12 sm:px-12 sm:py-14">
           <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[35px] border-[#172A3A]/5" />

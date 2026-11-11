@@ -78,7 +78,7 @@ export default function ProfilePage() {
     }
   }, [isPending, session, router]);
 
-  // Fetch real event statistics
+  // Fetch event statistics
   useEffect(() => {
     if (isPending || !session) return;
 
@@ -258,16 +258,34 @@ export default function ProfilePage() {
 
   if (isPending || !session || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FFF9F1]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#174B35]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#FFF9F1] dark:bg-[#101C17]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#174B35] dark:text-[#9CCB85]" />
       </div>
     );
   }
 
   const initial = user.name?.charAt(0).toUpperCase() || "U";
 
+  const headingClass =
+    "font-bold text-[#174B35] dark:text-[#E6F2E3]";
+
+  const bodyTextClass =
+    "text-gray-600 dark:text-gray-300";
+
+  const labelClass =
+    "text-sm font-semibold text-gray-600 dark:text-gray-300";
+
+  const iconClass =
+    "text-[#174B35] dark:text-[#9CCB85]";
+
+  const inputClass =
+    "mt-2 w-full rounded-xl border border-[#DCE9DD] bg-white px-4 py-3 text-[#26382D] outline-none transition placeholder:text-gray-400 focus:border-[#174B35] focus:ring-2 focus:ring-[#174B35]/20 dark:border-white/15 dark:bg-[#172A24] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#9CCB85] dark:focus:ring-[#9CCB85]/20";
+
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 rounded-xl bg-[#174B35] px-5 py-3 font-semibold text-white transition hover:bg-[#226344] dark:bg-[#6D985D] dark:text-[#102016] dark:hover:bg-[#85B875]";
+
   return (
-    <main className="min-h-screen bg-[#FFF9F1] px-4 py-12 sm:px-6">
+    <main className="min-h-screen bg-[#FFF9F1] px-4 py-12 transition-colors duration-300 dark:bg-[#101C17] sm:px-6">
       <div className="mx-auto max-w-5xl">
 
         {/* Page Heading */}
@@ -276,20 +294,20 @@ export default function ProfilePage() {
             YOUR ACCOUNT
           </p>
 
-          <h1 className="text-3xl font-bold text-[#174B35] md:text-4xl">
+          <h1 className={`text-3xl md:text-4xl ${headingClass}`}>
             My Profile
           </h1>
 
-          <p className="mt-2 text-gray-600">
+          <p className={`mt-2 ${bodyTextClass}`}>
             Manage your personal information and account activities.
           </p>
         </div>
 
         {/* Profile Card */}
-        <section className="overflow-hidden rounded-3xl border border-[#DCE9DD] bg-white shadow-sm">
+        <section className="overflow-hidden rounded-3xl border border-[#DCE9DD] bg-white shadow-sm transition-colors duration-300 dark:border-white/10 dark:bg-[#1A2B23]">
 
           {/* Green Banner */}
-          <div className="relative h-36 overflow-hidden bg-[#174B35]">
+          <div className="relative h-36 overflow-hidden bg-[#174B35] dark:bg-[#203E30]">
             <div className="pointer-events-none absolute -right-5 -top-16 h-40 w-40 rounded-full border-2 border-white/20" />
             <div className="pointer-events-none absolute right-32 top-16 h-32 w-32 rounded-full border-2 border-white/20" />
           </div>
@@ -297,20 +315,20 @@ export default function ProfilePage() {
           <div className="px-6 pb-10 md:px-10">
 
             {/* Profile Header */}
-            <div className="relative z-10 mb-8 border-b border-gray-100 pb-8">
+            <div className="relative z-10 mb-8 border-b border-gray-100 pb-8 dark:border-white/10">
               <div className="-mt-14 mb-4">
-                <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-white bg-[#E99A62] text-4xl font-bold text-white shadow-md">
+                <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-white bg-[#E99A62] text-4xl font-bold text-white shadow-md dark:border-[#1A2B23]">
                   {initial}
                 </div>
               </div>
 
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#174B35]">
+                  <h2 className={`text-2xl ${headingClass}`}>
                     {user.name || "User"}
                   </h2>
 
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Kindora Community Member
                   </p>
                 </div>
@@ -323,7 +341,7 @@ export default function ProfilePage() {
                       setSuccess("");
                       setIsEditing(true);
                     }}
-                    className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#174B35] px-5 py-3 font-semibold text-white transition hover:bg-[#226344]"
+                    className={`${primaryButtonClass} self-start`}
                   >
                     <Pencil size={17} />
                     Edit Profile
@@ -334,13 +352,13 @@ export default function ProfilePage() {
 
             {/* Profile Messages */}
             {success && (
-              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
                 {success}
               </div>
             )}
 
             {error && (
-              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-600">
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
                 {error}
               </div>
             )}
@@ -348,16 +366,18 @@ export default function ProfilePage() {
             {/* Personal Information */}
             <section>
               <div className="mb-6 flex items-center gap-2">
-                <User className="text-[#174B35]" size={22} />
-                <h3 className="text-xl font-bold text-[#174B35]">
+                <User className={iconClass} size={22} />
+
+                <h3 className={`text-xl ${headingClass}`}>
                   Personal Information
                 </h3>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
 
+                {/* Full Name */}
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">
+                  <label className={labelClass}>
                     Full Name
                   </label>
 
@@ -366,51 +386,55 @@ export default function ProfilePage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-[#DCE9DD] px-4 py-3 outline-none focus:ring-2 focus:ring-[#174B35]"
+                      className={inputClass}
                       placeholder="Enter your name"
                     />
                   ) : (
-                    <div className="mt-2 flex items-center gap-3 rounded-xl bg-[#F7FAF6] p-4">
-                      <User size={19} className="text-[#174B35]" />
-                      <span className="font-medium text-gray-700">
+                    <div className="mt-2 flex items-center gap-3 rounded-xl bg-[#F7FAF6] p-4 dark:bg-[#253A2F]">
+                      <User size={19} className={iconClass} />
+
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
                         {user.name || "Not provided"}
                       </span>
                     </div>
                   )}
                 </div>
 
+                {/* Email */}
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">
+                  <label className={labelClass}>
                     Email Address
                   </label>
 
-                  <div className="mt-2 flex items-center gap-3 rounded-xl bg-[#F7FAF6] p-4">
-                    <Mail size={19} className="shrink-0 text-[#174B35]" />
+                  <div className="mt-2 flex items-center gap-3 rounded-xl bg-[#F7FAF6] p-4 dark:bg-[#253A2F]">
+                    <Mail size={19} className="shrink-0 text-[#174B35] dark:text-[#9CCB85]" />
 
-                    <span className="break-all font-medium text-gray-700">
+                    <span className="break-all font-medium text-gray-700 dark:text-gray-200">
                       {user.email}
                     </span>
 
                     <ShieldCheck
                       size={18}
-                      className="ml-auto shrink-0 text-green-600"
+                      className="ml-auto shrink-0 text-green-600 dark:text-green-400"
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Edit Buttons */}
               {isEditing && (
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     onClick={handleUpdateProfile}
                     disabled={saving}
-                    className="flex items-center gap-2 rounded-xl bg-[#174B35] px-6 py-3 font-semibold text-white transition hover:bg-[#226344] disabled:opacity-50"
+                    className={`${primaryButtonClass} disabled:opacity-50`}
                   >
                     {saving ? (
                       <Loader2 size={18} className="animate-spin" />
                     ) : (
                       <Save size={18} />
                     )}
+
                     {saving ? "Saving..." : "Save Changes"}
                   </button>
 
@@ -421,7 +445,7 @@ export default function ProfilePage() {
                       setError("");
                     }}
                     disabled={saving}
-                    className="flex items-center gap-2 rounded-xl bg-gray-100 px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-200"
+                    className="flex items-center gap-2 rounded-xl bg-gray-100 px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
                   >
                     <X size={18} />
                     Cancel
@@ -433,9 +457,9 @@ export default function ProfilePage() {
             {/* Event Statistics */}
             <section className="mt-12">
               <div className="mb-6 flex items-center gap-2">
-                <CalendarDays className="text-[#174B35]" size={22} />
+                <CalendarDays className={iconClass} size={22} />
 
-                <h3 className="text-xl font-bold text-[#174B35]">
+                <h3 className={`text-xl ${headingClass}`}>
                   My Event Statistics
                 </h3>
               </div>
@@ -445,17 +469,17 @@ export default function ProfilePage() {
                 {/* Created Events */}
                 <Link
                   href="/manage-events"
-                  className="group rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-6 transition hover:border-[#174B35] hover:shadow-md"
+                  className="group rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-6 transition hover:border-[#174B35] hover:shadow-md dark:border-white/10 dark:bg-[#253A2F] dark:hover:border-[#9CCB85]"
                 >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#DCE9DD]">
-                    <CalendarDays size={24} className="text-[#174B35]" />
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#DCE9DD] dark:bg-[#385743]">
+                    <CalendarDays size={24} className="text-[#174B35] dark:text-[#C6E5B8]" />
                   </div>
 
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Total Created Events
                   </p>
 
-                  <h4 className="mt-2 text-4xl font-bold text-[#174B35]">
+                  <h4 className={`mt-2 text-4xl ${headingClass}`}>
                     {statsLoading ? (
                       <Loader2 className="h-8 w-8 animate-spin" />
                     ) : (
@@ -463,7 +487,7 @@ export default function ProfilePage() {
                     )}
                   </h4>
 
-                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#174B35]">
+                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#174B35] dark:text-[#B8D9A7]">
                     Manage Events
                     <ArrowRight
                       size={17}
@@ -475,17 +499,17 @@ export default function ProfilePage() {
                 {/* Joined Events */}
                 <Link
                   href="/joined-events"
-                  className="group rounded-2xl border border-[#F4DFD0] bg-[#FFF8F2] p-6 transition hover:border-[#E99A62] hover:shadow-md"
+                  className="group rounded-2xl border border-[#F4DFD0] bg-[#FFF8F2] p-6 transition hover:border-[#E99A62] hover:shadow-md dark:border-[#80583D]/40 dark:bg-[#382B23] dark:hover:border-[#E99A62]"
                 >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#FCE8D9]">
-                    <Users size={24} className="text-[#C16D35]" />
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#FCE8D9] dark:bg-[#62432F]">
+                    <Users size={24} className="text-[#C16D35] dark:text-[#FFC18F]" />
                   </div>
 
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Total Joined Events
                   </p>
 
-                  <h4 className="mt-2 text-4xl font-bold text-[#174B35]">
+                  <h4 className={`mt-2 text-4xl ${headingClass}`}>
                     {statsLoading ? (
                       <Loader2 className="h-8 w-8 animate-spin" />
                     ) : (
@@ -493,7 +517,7 @@ export default function ProfilePage() {
                     )}
                   </h4>
 
-                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#174B35]">
+                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#174B35] dark:text-[#F4C19D]">
                     View Joined Events
                     <ArrowRight
                       size={17}
@@ -505,7 +529,7 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => window.location.reload()}
-                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174B35] hover:underline"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174B35] hover:underline dark:text-[#B8D9A7]"
               >
                 <RefreshCw size={15} />
                 Refresh Statistics
@@ -513,33 +537,33 @@ export default function ProfilePage() {
             </section>
 
             {/* Change Password */}
-            <section className="mt-12 border-t border-gray-100 pt-10">
+            <section className="mt-12 border-t border-gray-100 pt-10 dark:border-white/10">
               <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DCE9DD]">
-                  <LockKeyhole size={22} className="text-[#174B35]" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DCE9DD] dark:bg-[#385743]">
+                  <LockKeyhole size={22} className="text-[#174B35] dark:text-[#C6E5B8]" />
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold text-[#174B35]">
+                  <h3 className={`text-xl ${headingClass}`}>
                     Account Security
                   </h3>
 
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Keep your account secure by updating your password.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-5 sm:p-7">
+              <div className="rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-5 transition-colors dark:border-white/10 dark:bg-[#253A2F] sm:p-7">
 
                 {passwordSuccess && (
-                  <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                  <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
                     {passwordSuccess}
                   </div>
                 )}
 
                 {passwordError && (
-                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
                     {passwordError}
                   </div>
                 )}
@@ -548,7 +572,7 @@ export default function ProfilePage() {
 
                   {/* Current Password */}
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                       Current Password
                     </label>
 
@@ -559,13 +583,13 @@ export default function ProfilePage() {
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="Enter current password"
                         autoComplete="current-password"
-                        className="w-full rounded-xl border border-[#DCE9DD] bg-white px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-[#174B35]"
+                        className={inputClass}
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowCurrent(!showCurrent)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
                         aria-label="Toggle current password visibility"
                       >
                         {showCurrent ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -575,7 +599,7 @@ export default function ProfilePage() {
 
                   {/* New Password */}
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                       New Password
                     </label>
 
@@ -586,27 +610,27 @@ export default function ProfilePage() {
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password"
                         autoComplete="new-password"
-                        className="w-full rounded-xl border border-[#DCE9DD] bg-white px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-[#174B35]"
+                        className={inputClass}
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowNew(!showNew)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
                         aria-label="Toggle new password visibility"
                       >
                         {showNew ? <EyeOff size={19} /> : <Eye size={19} />}
                       </button>
                     </div>
 
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                       Minimum 8 characters.
                     </p>
                   </div>
 
                   {/* Confirm Password */}
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                       Confirm New Password
                     </label>
 
@@ -617,13 +641,13 @@ export default function ProfilePage() {
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Confirm new password"
                         autoComplete="new-password"
-                        className="w-full rounded-xl border border-[#DCE9DD] bg-white px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-[#174B35]"
+                        className={inputClass}
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowConfirm(!showConfirm)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
                         aria-label="Toggle confirm password visibility"
                       >
                         {showConfirm ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -636,7 +660,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={handleChangePassword}
                     disabled={changingPassword}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-6 py-3.5 font-semibold text-white transition hover:bg-[#226344] disabled:cursor-not-allowed disabled:opacity-50 sm:w-fit"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-6 py-3.5 font-semibold text-white transition hover:bg-[#226344] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#6D985D] dark:text-[#102016] dark:hover:bg-[#85B875] sm:w-fit"
                   >
                     {changingPassword ? (
                       <Loader2 size={18} className="animate-spin" />
@@ -656,7 +680,7 @@ export default function ProfilePage() {
         </section>
 
         {/* Footer */}
-        <p className="mt-8 text-center text-sm text-gray-500">
+        <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
           Thank you for being a part of the Kindora community.
         </p>
 

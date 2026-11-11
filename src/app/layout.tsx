@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import NavbarWrapper from "@/components/NavbarWrapper";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,20 +35,23 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="flex min-h-screen flex-col">
-        <NavbarWrapper />
+      <body className="flex min-h-screen flex-col bg-background text-foreground transition-colors duration-300">
+        <ThemeProvider>
+          <NavbarWrapper />
 
-        <main className="flex-1">
-          {children}
-        </main>
+          <main className="flex-1">
+            {children}
+          </main>
 
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          duration={3000}
-        />
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            duration={3000}
+          />
+        </ThemeProvider>
       </body>
     </html>
   );
