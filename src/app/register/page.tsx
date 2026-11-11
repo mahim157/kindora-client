@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Eye,
@@ -15,8 +16,11 @@ import {
   Globe2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [photoURL, setPhotoURL] = useState("");
@@ -25,15 +29,24 @@ export default function RegisterPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const inputClass =
     "w-full rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-4 py-3.5 text-sm text-[#26382D] outline-none transition-all placeholder:text-[#AAA69D] hover:border-[#C7D5C8] focus:border-[#78947E] focus:ring-4 focus:ring-[#DCE9DD]/60";
 
-  const handleRegister = (e: FormEvent<HTMLFormElement>) => {
+  // Registration Handler
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (loading) return;
 
     if (name.trim().length < 2) {
       toast.error("Please enter your full name.");
+      return;
+    }
+
+    if (!email.trim()) {
+      toast.error("Please enter your email address.");
       return;
     }
 
@@ -55,7 +68,8 @@ export default function RegisterPage() {
 
     if (photoURL.trim()) {
       try {
-        const url = new URL(photoURL);
+        const url = new URL(photoURL.trim());
+
         if (!["http:", "https:"].includes(url.protocol)) {
           throw new Error("Invalid URL");
         }
@@ -65,22 +79,50 @@ export default function RegisterPage() {
       }
     }
 
-    toast.info("Registration authentication will be connected next.");
+    try {
+      setLoading(true);
+
+      const result = await authClient.signUp.email({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        ...(photoURL.trim() ? { image: photoURL.trim() } : {}),
+        callbackURL: "/",
+      });
+
+      if (result.error) {
+        toast.error(
+          result.error.message || "Registration failed. Please try again."
+        );
+        return;
+      }
+
+      toast.success("Account created successfully!");
+
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <main className="relative flex min-h-screen overflow-hidden bg-[#FFF9F1] text-[#26382D]">
-
       {/* Background Decorations */}
       <div className="pointer-events-none absolute -right-32 -top-20 h-96 w-96 rounded-full bg-[#F4E7D8]/70 blur-3xl" />
+
       <div className="pointer-events-none absolute -bottom-32 left-1/3 h-96 w-96 rounded-full bg-[#DCE9DD]/60 blur-3xl" />
 
       {/* Left Hero Section */}
       <section className="relative hidden w-[48%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#123D2B] via-[#174B35] to-[#286747] p-12 text-white lg:flex xl:p-16">
-
         {/* Decorative Circles */}
         <div className="absolute -right-32 -top-32 h-[430px] w-[430px] rounded-full border border-white/10" />
+
         <div className="absolute -right-16 -top-16 h-[300px] w-[300px] rounded-full border border-white/10" />
+
         <div className="absolute -bottom-40 -left-32 h-[450px] w-[450px] rounded-full bg-[#E99A62]/10 blur-3xl" />
 
         {/* Logo */}
@@ -96,7 +138,6 @@ export default function RegisterPage() {
 
         {/* Hero Content */}
         <div className="relative z-10 max-w-xl">
-
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-[#F4E7D8] backdrop-blur-md">
             <Sparkles size={16} className="text-[#E99A62]" />
             Together, We Make a Difference
@@ -117,7 +158,6 @@ export default function RegisterPage() {
 
           {/* Feature Cards */}
           <div className="mt-10 grid max-w-lg grid-cols-2 gap-4">
-
             <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm transition hover:bg-white/[0.12]">
               <div className="mb-4 inline-flex rounded-xl bg-[#E99A62]/15 p-3">
                 <Users size={24} className="text-[#F1B486]" />
@@ -141,7 +181,6 @@ export default function RegisterPage() {
                 Bring positive change to your community.
               </p>
             </div>
-
           </div>
         </div>
 
@@ -152,9 +191,7 @@ export default function RegisterPage() {
 
       {/* Right Registration Section */}
       <section className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 sm:px-8 lg:px-10">
-
         <div className="w-full max-w-[490px]">
-
           {/* Mobile Logo */}
           <Link
             href="/"
@@ -166,10 +203,8 @@ export default function RegisterPage() {
 
           {/* Registration Card */}
           <div className="rounded-[28px] border border-[#EEE8DE] bg-white p-6 shadow-[0_20px_70px_rgba(38,56,45,0.07)] sm:p-9">
-
             {/* Heading */}
             <div className="mb-6">
-
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#E9D9C8] bg-[#F8EBDD] px-3.5 py-2 text-xs font-bold tracking-wide text-[#8C5736]">
                 <Leaf size={15} />
                 JOIN THE COMMUNITY
@@ -182,12 +217,10 @@ export default function RegisterPage() {
               <p className="mt-3 text-sm leading-6 text-[#78847A]">
                 Your journey towards making a difference starts here.
               </p>
-
             </div>
 
             {/* Registration Form */}
             <form onSubmit={handleRegister} className="space-y-4">
-
               {/* Full Name */}
               <div>
                 <label
@@ -203,6 +236,7 @@ export default function RegisterPage() {
                   placeholder="Enter your full name"
                   autoComplete="name"
                   required
+                  minLength={2}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className={inputClass}
@@ -333,16 +367,18 @@ export default function RegisterPage() {
               {/* Create Account */}
               <button
                 type="submit"
-                className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-5 py-4 text-sm font-bold text-white shadow-lg shadow-[#174B35]/15 transition duration-300 hover:-translate-y-0.5 hover:bg-[#103D2B] hover:shadow-xl"
+                disabled={loading}
+                className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-5 py-4 text-sm font-bold text-white shadow-lg shadow-[#174B35]/15 transition duration-300 hover:-translate-y-0.5 hover:bg-[#103D2B] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create Account
+                {loading ? "Creating Account..." : "Create Account"}
 
-                <ArrowRight
-                  size={18}
-                  className="transition-transform group-hover:translate-x-1"
-                />
+                {!loading && (
+                  <ArrowRight
+                    size={18}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
+                )}
               </button>
-
             </form>
 
             {/* Social Login Divider */}
@@ -356,9 +392,8 @@ export default function RegisterPage() {
               <div className="h-px flex-1 bg-[#E9E5DC]" />
             </div>
 
-            {/* Google and GitHub Buttons - Below Form */}
+            {/* Google and GitHub Buttons */}
             <div className="grid grid-cols-2 gap-3">
-
               {/* Google */}
               <button
                 type="button"
@@ -412,7 +447,6 @@ export default function RegisterPage() {
 
                 GitHub
               </button>
-
             </div>
 
             {/* Security Info */}
@@ -435,7 +469,6 @@ export default function RegisterPage() {
             <p className="mt-5 text-center text-xs text-[#A49B90]">
               © 2026 Kindora. All rights reserved.
             </p>
-
           </div>
         </div>
       </section>

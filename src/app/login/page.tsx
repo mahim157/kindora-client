@@ -119,7 +119,7 @@ export default function LoginPage() {
 
       {/* Login Section */}
       <section className="flex min-h-screen flex-1 items-center justify-center px-4 py-10 sm:px-8 lg:px-10">
-        <div className="w-full max-w-[460px]">
+        <div className="w-full max-w-115">
           {/* Mobile Brand */}
           <Link
             href="/"
