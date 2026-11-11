@@ -9,6 +9,13 @@ export const auth = betterAuth({
 
   baseURL: process.env.BETTER_AUTH_URL,
 
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://kindora-client-git-main-mahim12.vercel.app",
+    "https://kindora-client-psi.vercel.app",
+    "https://kindora-client-qg5osl2qs-mahim12.vercel.app",
+  ],
+
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 6,
