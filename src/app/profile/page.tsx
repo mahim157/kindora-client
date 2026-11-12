@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,6 +6,7 @@ import Link from "next/link";
 import {
   User,
   Mail,
+  Image as ImageIcon,
   CalendarDays,
   Users,
   Pencil,
@@ -42,6 +42,8 @@ export default function ProfilePage() {
   // Profile states
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState("");
+  const [image, setImage] = useState("");
+  const [imgError, setImgError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -64,12 +66,14 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
 
-  // Update name when user data changes
+  // Sync user data when session loads/updates
   useEffect(() => {
-    if (user?.name) {
-      setName(user.name);
+    if (user) {
+      setName(user.name || "");
+      setImage(user.image || "");
+      setImgError(false);
     }
-  }, [user?.name]);
+  }, [user]);
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -162,7 +166,7 @@ export default function ProfilePage() {
     };
   }, [isPending, session]);
 
-  // Update profile name
+  // Update profile name & image
   const handleUpdateProfile = async () => {
     if (!name.trim()) {
       setError("Name cannot be empty.");
@@ -176,6 +180,7 @@ export default function ProfilePage() {
 
       const result = await authClient.updateUser({
         name: name.trim(),
+        image: image.trim() || undefined,
       });
 
       if (result.error) {
@@ -183,6 +188,7 @@ export default function ProfilePage() {
         return;
       }
 
+      setImgError(false);
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
       toast.success("Profile updated successfully!");
@@ -265,6 +271,7 @@ export default function ProfilePage() {
   }
 
   const initial = user.name?.charAt(0).toUpperCase() || "U";
+  const activeImage = isEditing ? image.trim() : user.image;
 
   const headingClass =
     "font-bold text-[#174B35] dark:text-[#E6F2E3]";
@@ -317,9 +324,18 @@ export default function ProfilePage() {
             {/* Profile Header */}
             <div className="relative z-10 mb-8 border-b border-gray-100 pb-8 dark:border-white/10">
               <div className="-mt-14 mb-4">
-                <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-white bg-[#E99A62] text-4xl font-bold text-white shadow-md dark:border-[#1A2B23]">
-                  {initial}
-                </div>
+                {activeImage && !imgError ? (
+                  <img
+                    src={activeImage}
+                    alt={user.name || "Profile"}
+                    onError={() => setImgError(true)}
+                    className="h-24 w-24 rounded-2xl border-4 border-white object-cover shadow-md dark:border-[#1A2B23]"
+                  />
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-white bg-[#E99A62] text-4xl font-bold text-white shadow-md dark:border-[#1A2B23]">
+                    {initial}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -337,6 +353,8 @@ export default function ProfilePage() {
                   <button
                     onClick={() => {
                       setName(user.name || "");
+                      setImage(user.image || "");
+                      setImgError(false);
                       setError("");
                       setSuccess("");
                       setIsEditing(true);
@@ -419,6 +437,28 @@ export default function ProfilePage() {
                     />
                   </div>
                 </div>
+
+                {/* Profile Picture URL (Shown when editing) */}
+                {isEditing && (
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>
+                      Profile Picture URL
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={image}
+                        onChange={(e) => {
+                          setImage(e.target.value);
+                          setImgError(false);
+                        }}
+                        className={inputClass}
+                        placeholder="https://example.com/your-photo.jpg"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Edit Buttons */}
@@ -441,6 +481,8 @@ export default function ProfilePage() {
                   <button
                     onClick={() => {
                       setName(user.name || "");
+                      setImage(user.image || "");
+                      setImgError(false);
                       setIsEditing(false);
                       setError("");
                     }}
