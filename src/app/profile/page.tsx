@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   User,
   Mail,
-  Image as ImageIcon,
   CalendarDays,
   Users,
   Pencil,
@@ -48,6 +47,9 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  // Account provider check (show password section only for credential users)
+  const [hasPasswordAccount, setHasPasswordAccount] = useState(false);
+
   // Event statistics
   const [createdCount, setCreatedCount] = useState(0);
   const [joinedCount, setJoinedCount] = useState(0);
@@ -81,6 +83,38 @@ export default function ProfilePage() {
       router.replace("/login");
     }
   }, [isPending, session, router]);
+
+  // Check if user registered with email & password (credential)
+  useEffect(() => {
+    if (isPending || !session) return;
+
+    let cancelled = false;
+
+    const checkAccountProvider = async () => {
+      try {
+        const accountsRes = await authClient.listAccounts();
+        const accounts = accountsRes.data || [];
+        const isCredentialUser = accounts.some(
+          (acc) => acc.providerId === "credential"
+        );
+
+        if (!cancelled) {
+          setHasPasswordAccount(isCredentialUser);
+        }
+      } catch (err) {
+        console.error("Failed to check linked accounts:", err);
+        if (!cancelled) {
+          setHasPasswordAccount(false);
+        }
+      }
+    };
+
+    checkAccountProvider();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPending, session]);
 
   // Fetch event statistics
   useEffect(() => {
@@ -445,18 +479,16 @@ export default function ProfilePage() {
                       Profile Picture URL
                     </label>
 
-                    <div className="relative">
-                      <input
-                        type="url"
-                        value={image}
-                        onChange={(e) => {
-                          setImage(e.target.value);
-                          setImgError(false);
-                        }}
-                        className={inputClass}
-                        placeholder="https://example.com/your-photo.jpg"
-                      />
-                    </div>
+                    <input
+                      type="url"
+                      value={image}
+                      onChange={(e) => {
+                        setImage(e.target.value);
+                        setImgError(false);
+                      }}
+                      className={inputClass}
+                      placeholder="https://example.com/your-photo.jpg"
+                    />
                   </div>
                 )}
               </div>
@@ -578,145 +610,147 @@ export default function ProfilePage() {
               </button>
             </section>
 
-            {/* Change Password */}
-            <section className="mt-12 border-t border-gray-100 pt-10 dark:border-white/10">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DCE9DD] dark:bg-[#385743]">
-                  <LockKeyhole size={22} className="text-[#174B35] dark:text-[#C6E5B8]" />
-                </div>
-
-                <div>
-                  <h3 className={`text-xl ${headingClass}`}>
-                    Account Security
-                  </h3>
-
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Keep your account secure by updating your password.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-5 transition-colors dark:border-white/10 dark:bg-[#253A2F] sm:p-7">
-
-                {passwordSuccess && (
-                  <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
-                    {passwordSuccess}
+            {/* Change Password (Shown only for Email/Password accounts) */}
+            {hasPasswordAccount && (
+              <section className="mt-12 border-t border-gray-100 pt-10 dark:border-white/10">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DCE9DD] dark:bg-[#385743]">
+                    <LockKeyhole size={22} className="text-[#174B35] dark:text-[#C6E5B8]" />
                   </div>
-                )}
 
-                {passwordError && (
-                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
-                    {passwordError}
-                  </div>
-                )}
-
-                <div className="space-y-5">
-
-                  {/* Current Password */}
                   <div>
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                      Current Password
-                    </label>
+                    <h3 className={`text-xl ${headingClass}`}>
+                      Account Security
+                    </h3>
 
-                    <div className="relative mt-2">
-                      <input
-                        type={showCurrent ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Enter current password"
-                        autoComplete="current-password"
-                        className={inputClass}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrent(!showCurrent)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
-                        aria-label="Toggle current password visibility"
-                      >
-                        {showCurrent ? <EyeOff size={19} /> : <Eye size={19} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* New Password */}
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                      New Password
-                    </label>
-
-                    <div className="relative mt-2">
-                      <input
-                        type={showNew ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password"
-                        autoComplete="new-password"
-                        className={inputClass}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowNew(!showNew)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
-                        aria-label="Toggle new password visibility"
-                      >
-                        {showNew ? <EyeOff size={19} /> : <Eye size={19} />}
-                      </button>
-                    </div>
-
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Minimum 8 characters.
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Keep your account secure by updating your password.
                     </p>
                   </div>
-
-                  {/* Confirm Password */}
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                      Confirm New Password
-                    </label>
-
-                    <div className="relative mt-2">
-                      <input
-                        type={showConfirm ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                        autoComplete="new-password"
-                        className={inputClass}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirm(!showConfirm)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
-                        aria-label="Toggle confirm password visibility"
-                      >
-                        {showConfirm ? <EyeOff size={19} /> : <Eye size={19} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Change Password Button */}
-                  <button
-                    type="button"
-                    onClick={handleChangePassword}
-                    disabled={changingPassword}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-6 py-3.5 font-semibold text-white transition hover:bg-[#226344] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#6D985D] dark:text-[#102016] dark:hover:bg-[#85B875] sm:w-fit"
-                  >
-                    {changingPassword ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <LockKeyhole size={18} />
-                    )}
-
-                    {changingPassword
-                      ? "Updating Password..."
-                      : "Change Password"}
-                  </button>
                 </div>
-              </div>
-            </section>
+
+                <div className="rounded-2xl border border-[#DCE9DD] bg-[#F7FAF6] p-5 transition-colors dark:border-white/10 dark:bg-[#253A2F] sm:p-7">
+
+                  {passwordSuccess && (
+                    <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300">
+                      {passwordSuccess}
+                    </div>
+                  )}
+
+                  {passwordError && (
+                    <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+                      {passwordError}
+                    </div>
+                  )}
+
+                  <div className="space-y-5">
+
+                    {/* Current Password */}
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        Current Password
+                      </label>
+
+                      <div className="relative mt-2">
+                        <input
+                          type={showCurrent ? "text" : "password"}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                          autoComplete="current-password"
+                          className={inputClass}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrent(!showCurrent)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
+                          aria-label="Toggle current password visibility"
+                        >
+                          {showCurrent ? <EyeOff size={19} /> : <Eye size={19} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* New Password */}
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        New Password
+                      </label>
+
+                      <div className="relative mt-2">
+                        <input
+                          type={showNew ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          autoComplete="new-password"
+                          className={inputClass}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowNew(!showNew)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
+                          aria-label="Toggle new password visibility"
+                        >
+                          {showNew ? <EyeOff size={19} /> : <Eye size={19} />}
+                        </button>
+                      </div>
+
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Minimum 8 characters.
+                      </p>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        Confirm New Password
+                      </label>
+
+                      <div className="relative mt-2">
+                        <input
+                          type={showConfirm ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          autoComplete="new-password"
+                          className={inputClass}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm(!showConfirm)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#174B35] dark:text-gray-400 dark:hover:text-white"
+                          aria-label="Toggle confirm password visibility"
+                        >
+                          {showConfirm ? <EyeOff size={19} /> : <Eye size={19} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Change Password Button */}
+                    <button
+                      type="button"
+                      onClick={handleChangePassword}
+                      disabled={changingPassword}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-6 py-3.5 font-semibold text-white transition hover:bg-[#226344] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#6D985D] dark:text-[#102016] dark:hover:bg-[#85B875] sm:w-fit"
+                    >
+                      {changingPassword ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <LockKeyhole size={18} />
+                      )}
+
+                      {changingPassword
+                        ? "Updating Password..."
+                        : "Change Password"}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
 
           </div>
         </section>
