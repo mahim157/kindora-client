@@ -1,4 +1,3 @@
-
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
@@ -12,7 +11,10 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000",
 
-    // Stable production URL
+    // Current production URL
+    "https://kindora-client-qvje.vercel.app",
+
+    // Stable git branch production URL
     "https://kindora-client-git-main-mahim12.vercel.app",
 
     // Existing preview URL
