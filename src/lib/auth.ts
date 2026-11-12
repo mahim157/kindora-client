@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
+import { ObjectId } from "mongodb";
 import { db } from "@/lib/mongodb";
 
 export const auth = betterAuth({
@@ -33,6 +34,7 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["google", "github"],
+      allowDifferentEmails: true,
     },
   },
 
@@ -44,6 +46,29 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+    },
+  },
+
+  databaseHooks: {
+    account: {
+      create: {
+        before: async (account) => {
+          if (
+            account.providerId === "google" ||
+            account.providerId === "github"
+          ) {
+            const filter = ObjectId.isValid(account.userId)
+              ? { _id: new ObjectId(account.userId) }
+              : { id: account.userId };
+
+            await db
+              .collection("user")
+              .updateOne(filter, { $set: { emailVerified: true } });
+          }
+
+          return { data: account };
+        },
+      },
     },
   },
 
