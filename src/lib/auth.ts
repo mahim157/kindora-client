@@ -29,6 +29,13 @@ export const auth = betterAuth({
     minPasswordLength: 6,
   },
 
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "github"],
+    },
+  },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
