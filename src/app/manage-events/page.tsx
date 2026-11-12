@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -19,7 +18,8 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-const API_URL = "http://localhost:5000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://kindora-server-mocha.vercel.app";
 
 interface EventItem {
   _id: string;
