@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -38,6 +37,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "github" | null>(
+    null
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -222,6 +224,29 @@ export default function RegisterPage() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Social Sign-up / Login Handler (Google & GitHub)
+  const handleSocialSignUp = async (provider: "google" | "github") => {
+    try {
+      setSocialLoading(provider);
+
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: "/",
+      });
+
+      if (result?.error) {
+        toast.error(
+          result.error.message || `Failed to continue with ${provider}.`
+        );
+        setSocialLoading(null);
+      }
+    } catch (error) {
+      console.error(`${provider} sign-up error:`, error);
+      toast.error("Something went wrong. Please try again.");
+      setSocialLoading(null);
     }
   };
 
@@ -543,7 +568,7 @@ export default function RegisterPage() {
               {/* Create Account */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || socialLoading !== null}
                 className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] px-5 py-4 text-sm font-bold text-white shadow-lg shadow-[#174B35]/15 transition duration-300 hover:-translate-y-0.5 hover:bg-[#103D2B] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Creating Account..." : "Create Account"}
@@ -572,10 +597,9 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  toast.info("Google sign-up will be enabled after OAuth setup.")
-                }
-                className="flex items-center justify-center gap-2.5 rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-3 py-3.5 text-sm font-semibold text-[#344239] transition duration-300 hover:-translate-y-0.5 hover:border-[#D6A47E] hover:bg-[#FFF7ED] hover:shadow-md"
+                disabled={loading || socialLoading !== null}
+                onClick={() => handleSocialSignUp("google")}
+                className="flex items-center justify-center gap-2.5 rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-3 py-3.5 text-sm font-semibold text-[#344239] transition duration-300 hover:-translate-y-0.5 hover:border-[#D6A47E] hover:bg-[#FFF7ED] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg viewBox="0 0 48 48" className="h-5 w-5">
                   <path
@@ -584,7 +608,7 @@ export default function RegisterPage() {
                   />
                   <path
                     fill="#4285F4"
-                    d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.76 7.18l7.72 6C44.4 37.96 46.98 31.95 46.98 24.55Z"
+                    d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.25 5.48-4.74 7.18l7.72 6C44.4 37.96 46.98 31.95 46.98 24.55Z"
                   />
                   <path
                     fill="#FBBC05"
@@ -596,15 +620,14 @@ export default function RegisterPage() {
                   />
                 </svg>
 
-                Google
+                {socialLoading === "google" ? "Connecting..." : "Google"}
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  toast.info("GitHub sign-up will be enabled after OAuth setup.")
-                }
-                className="flex items-center justify-center gap-2.5 rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-3 py-3.5 text-sm font-semibold text-[#344239] transition duration-300 hover:-translate-y-0.5 hover:border-[#D6A47E] hover:bg-[#FFF7ED] hover:shadow-md"
+                disabled={loading || socialLoading !== null}
+                onClick={() => handleSocialSignUp("github")}
+                className="flex items-center justify-center gap-2.5 rounded-xl border border-[#E9E5DC] bg-[#FFFEFC] px-3 py-3.5 text-sm font-semibold text-[#344239] transition duration-300 hover:-translate-y-0.5 hover:border-[#D6A47E] hover:bg-[#FFF7ED] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -614,7 +637,7 @@ export default function RegisterPage() {
                   <path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.07 3.2 1.59.1-.73.39-1.22.7-1.5-2.5-.29-5.13-1.25-5.13-5.56 0-1.23.44-2.24 1.16-3.03-.12-.29-.5-1.44.11-2.99 0 0 .95-.3 3.08 1.16a10.7 10.7 0 0 1 5.61 0c2.14-1.46 3.08-1.16 3.08-1.16.61 1.55.23 2.7.11 2.99.72.79 1.16 1.8 1.16 3.03 0 4.32-2.64 5.27-5.15 5.55.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.78.54A11.2 11.2 0 0 0 12 .8Z" />
                 </svg>
 
-                GitHub
+                {socialLoading === "github" ? "Connecting..." : "GitHub"}
               </button>
             </div>
 

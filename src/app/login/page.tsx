@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -28,6 +27,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "github" | null>(
+    null
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -96,7 +98,7 @@ export default function LoginPage() {
     }
   };
 
-  // Login
+  // Email & Password Login
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -131,6 +133,27 @@ export default function LoginPage() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Social Login (Google & GitHub)
+  const handleSocialLogin = async (provider: "google" | "github") => {
+    try {
+      setSocialLoading(provider);
+
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: "/",
+      });
+
+      if (result?.error) {
+        toast.error(result.error.message || `Failed to sign in with ${provider}.`);
+        setSocialLoading(null);
+      }
+    } catch (error) {
+      console.error(`${provider} login error:`, error);
+      toast.error("Something went wrong. Please try again.");
+      setSocialLoading(null);
     }
   };
 
@@ -366,7 +389,7 @@ export default function LoginPage() {
               {/* Login Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || socialLoading !== null}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#174B35] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#174B35]/10 transition hover:bg-[#103D2A] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Signing in..." : "Sign In"}
@@ -389,10 +412,9 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  toast.info("Google login will be configured later.")
-                }
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E9E3] py-3 text-sm font-semibold text-[#26382D] transition hover:bg-[#FFF9F1]"
+                disabled={loading || socialLoading !== null}
+                onClick={() => handleSocialLogin("google")}
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E9E3] py-3 text-sm font-semibold text-[#26382D] transition hover:bg-[#FFF9F1] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg viewBox="0 0 48 48" className="h-5 w-5">
                   <path
@@ -412,20 +434,19 @@ export default function LoginPage() {
                     d="M24 48c6.48 0 11.93-2.13 15.91-5.79l-7.32-5.68c-2.03 1.36-4.63 2.16-8.59 2.16-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"
                   />
                 </svg>
-                Google
+                {socialLoading === "google" ? "Connecting..." : "Google"}
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  toast.info("GitHub login will be configured later.")
-                }
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E9E3] py-3 text-sm font-semibold text-[#26382D] transition hover:bg-[#FFF9F1]"
+                disabled={loading || socialLoading !== null}
+                onClick={() => handleSocialLogin("github")}
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#E5E9E3] py-3 text-sm font-semibold text-[#26382D] transition hover:bg-[#FFF9F1] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5 fill-[#26382D]">
                   <path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.5-1.29-1.23-1.63-1.23-1.63-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 1.7 2.63 1.21 3.27.93.1-.72.39-1.21.71-1.49-2.48-.28-5.09-1.24-5.09-5.51 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.11-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.28-2.62 5.22-5.11 5.5.4.35.76 1.03.76 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z" />
                 </svg>
-                GitHub
+                {socialLoading === "github" ? "Connecting..." : "GitHub"}
               </button>
             </div>
 
